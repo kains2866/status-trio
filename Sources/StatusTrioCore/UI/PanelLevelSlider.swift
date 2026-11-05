@@ -6,6 +6,11 @@ import SwiftUI
 enum PanelLevelSliderMetrics {
     /// Overall control height on screen.
     static let controlHeight: CGFloat = 30
+    /// Shorter height used by the volume and mic rows so those two sliders sit
+    /// tighter vertically while the brightness rows keep `controlHeight`.
+    static let compactSlotHeight: CGFloat = 20
+    /// Slim capsule height for compact (volume/mic) rows.
+    static let compactBarHeight: CGFloat = 12
     /// Visible capsule height.
     static let barHeight: CGFloat = 16
     /// White thumb circle diameter.
@@ -23,6 +28,8 @@ enum PanelLevelSliderMetrics {
     static let labelFontSize: CGFloat = 9
     /// How long the label takes to move between the two sides.
     static let labelAnimationDuration: TimeInterval = 0.16
+    /// Room reserved around the knob raster for its baked shadow.
+    static let knobRasterMargin: CGFloat = 6
 
     /// Thumb centre X for a value in 0...1 across the whole capsule.
     static func thumbCenterX(for value: Double, width: CGFloat) -> CGFloat {
@@ -149,6 +156,14 @@ struct PanelLevelSlider: View {
     var accessibilityValue: String? = nil
     var accessibilityHint: String? = nil
     var onEditingChanged: (Bool) -> Void = { _ in }
+    /// Overall control height on screen. The panel's default is 30; the volume
+    /// and mic rows opt into a shorter control while the brightness rows keep
+    /// the default.
+    var height: CGFloat = PanelLevelSliderMetrics.controlHeight
+    /// Visible capsule (bar) height. Standard rows use the metric default; the
+    /// compact volume/mic rows opt into a slimmer capsule. `nil` falls back to
+    /// the metric default.
+    var barHeight: CGFloat = PanelLevelSliderMetrics.barHeight
 
     var body: some View {
         GeometryReader { proxy in
@@ -163,11 +178,13 @@ struct PanelLevelSlider: View {
                 onValueChanged: { newValue in
                     value = newValue
                 },
-                onEditingChanged: onEditingChanged
+                onEditingChanged: onEditingChanged,
+                height: height,
+                barHeight: barHeight
             )
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .frame(height: PanelLevelSliderMetrics.controlHeight)
+        .frame(height: height)
         // Accessibility lives on the native NSSlider so VoiceOver sees one
         // adjustable control with the same label/value the old Slider exposed.
     }
@@ -184,12 +201,16 @@ private extension PanelLevelSlider {
         let accessibilityHint: String?
         let onValueChanged: (Double) -> Void
         let onEditingChanged: (Bool) -> Void
+        let height: CGFloat
+        let barHeight: CGFloat
 
         func makeNSView(context: Context) -> PanelLevelSliderView {
             let slider = PanelLevelSliderView()
             slider.onValueChanged = onValueChanged
             slider.onEditingChanged = onEditingChanged
             slider.isEnabled = isEnabled
+            slider.designHeight = height
+            slider.barHeight = barHeight
             slider.doubleValue = clamped(currentValue)
             slider.setLabel(label, animated: false)
             applyAccessibility(to: slider)
@@ -199,6 +220,8 @@ private extension PanelLevelSlider {
         func updateNSView(_ nsView: PanelLevelSliderView, context: Context) {
             nsView.isEnabled = isEnabled
             nsView.fillColor = NSColor(tint)
+            nsView.designHeight = height
+            nsView.barHeight = barHeight
             nsView.onValueChanged = onValueChanged
             nsView.onEditingChanged = onEditingChanged
             nsView.setLabel(label, animated: true)
@@ -240,7 +263,25 @@ private extension PanelLevelSlider {
 final class PanelLevelSliderView: NSSlider {
     var onValueChanged: ((Double) -> Void)?
     var onEditingChanged: ((Bool) -> Void)?
-    var fillColor: NSColor = .controlAccentColor
+    var fillColor: NSColor = .controlAccentColor {
+        didSet {
+            if !fillColor.isEqual(oldValue) { invalidateRaster() }
+        }
+    }
+
+    /// The panel's design height for this control. The volume and mic rows use
+    /// a shorter slot than the brightness rows.
+    var designHeight: CGFloat = PanelLevelSliderMetrics.controlHeight
+    /// Visible capsule height for this control. Compact rows pass a slim value
+    /// so the blue capsule reads shorter than the standard rows.
+    var barHeight: CGFloat = PanelLevelSliderMetrics.barHeight
+    private var barCornerRadius: CGFloat { barHeight / 2 }
+
+    private var rasterGeneration = 0
+    private var rasterBuiltGeneration = -1
+    private var trackImage: NSImage?
+    private var fillImage: NSImage?
+    private var knobImage: NSImage?
 
     private var labelText: String?
     private var labelTextWidth: CGFloat = 0
@@ -291,7 +332,7 @@ final class PanelLevelSliderView: NSSlider {
     override var intrinsicContentSize: NSSize {
         NSSize(
             width: NSView.noIntrinsicMetric,
-            height: PanelLevelSliderMetrics.controlHeight
+            height: designHeight
         )
     }
 
@@ -305,12 +346,12 @@ final class PanelLevelSliderView: NSSlider {
         // The capsule spans the full control width so its leading edge lines up
         // with the row's other components; the thumb still travels between the
         // rounded ends (centre inset by its radius).
-        let y = (bounds.height - PanelLevelSliderMetrics.barHeight) / 2
+        let y = (bounds.height - barHeight) / 2
         return NSRect(
             x: 0,
             y: y,
             width: max(0, bounds.width),
-            height: PanelLevelSliderMetrics.barHeight
+            height: barHeight
         )
     }
 
@@ -461,9 +502,157 @@ final class PanelLevelSliderView: NSSlider {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        drawBarAndFill()
+        ensureRaster()
+        let bar = barRect(in: bounds)
+        trackImage?.draw(in: bar)
+
+        if isEnabled, clampedDoubleValue > 0.001 {
+            let centerX = knobCenter(in: bounds).x
+            let fillWidth = min(max(0, centerX - bar.minX), bar.width)
+            if fillWidth > 0.5, let fillImage {
+                fillImage.draw(
+                    in: NSRect(x: bar.minX, y: bar.minY, width: fillWidth, height: bar.height),
+                    from: NSRect(x: 0, y: 0, width: fillWidth, height: bar.height),
+                    operation: .sourceOver,
+                    fraction: 1
+                )
+            }
+        }
+
         drawLabel()
-        drawKnob()
+
+        let center = knobCenter(in: bounds)
+        let margin = PanelLevelSliderMetrics.knobRasterMargin
+        knobImage?.draw(
+            in: NSRect(
+                x: center.x - PanelLevelSliderMetrics.thumbRadius - margin,
+                y: center.y - PanelLevelSliderMetrics.thumbRadius - margin,
+                width: PanelLevelSliderMetrics.thumbDiameter + margin * 2,
+                height: PanelLevelSliderMetrics.thumbDiameter + margin * 2
+            )
+        )
+    }
+
+    // MARK: Raster cache
+
+    /// Rebuilds the track, fill and knob bitmaps. Dragging only needs to blit
+    /// them at the new position, so the pointer path avoids Core Graphics path
+    /// filling and shadow rasterisation on every event (#263).
+    func invalidateRaster() {
+        rasterGeneration &+= 1
+        rasterBuiltGeneration = -1
+        needsDisplay = true
+    }
+
+    private var backingScale: CGFloat {
+        window?.backingScaleFactor ?? 2
+    }
+
+    private func ensureRaster() {
+        guard rasterBuiltGeneration != rasterGeneration, bounds.width > 1, bounds.height > 1 else {
+            return
+        }
+        rasterBuiltGeneration = rasterGeneration
+        let scale = backingScale
+        let bar = barRect(in: bounds)
+        let dark = isDarkAppearance
+        let trackColor = dark
+            ? NSColor(white: 1.0, alpha: 0.14)
+            : NSColor(white: 0.0, alpha: 0.10)
+        let barRadius = barCornerRadius
+        let barSize = bar.size
+
+        trackImage = Self.rasterized(size: barSize, scale: scale) { _ in
+            let path = NSBezierPath(
+                roundedRect: NSRect(origin: .zero, size: barSize),
+                xRadius: barRadius,
+                yRadius: barRadius
+            )
+            trackColor.setFill()
+            path.fill()
+        }
+        fillImage = Self.rasterized(size: barSize, scale: scale) { _ in
+            let path = NSBezierPath(
+                roundedRect: NSRect(origin: .zero, size: barSize),
+                xRadius: barRadius,
+                yRadius: barRadius
+            )
+            self.effectiveFillColor.setFill()
+            path.fill()
+        }
+
+        let diameter = PanelLevelSliderMetrics.thumbDiameter
+        let margin = PanelLevelSliderMetrics.knobRasterMargin
+        let knobSize = NSSize(width: diameter + margin * 2, height: diameter + margin * 2)
+        let knobColor: NSColor = isEnabled
+            ? (dark ? NSColor.white : NSColor(calibratedWhite: 0.99, alpha: 1))
+            : NSColor(white: dark ? 0.55 : 0.8, alpha: 1)
+        knobImage = Self.rasterized(size: knobSize, scale: scale) { _ in
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.16)
+            shadow.shadowBlurRadius = 2
+            shadow.shadowOffset = .zero
+            shadow.set()
+            let path = NSBezierPath(
+                ovalIn: NSRect(x: margin, y: margin, width: diameter, height: diameter)
+            )
+            knobColor.setFill()
+            path.fill()
+        }
+    }
+
+    private static func rasterized(
+        size: NSSize,
+        scale: CGFloat,
+        draw: (NSGraphicsContext) -> Void
+    ) -> NSImage? {
+        let pixelsWide = max(1, Int((size.width * scale).rounded(.up)))
+        let pixelsHigh = max(1, Int((size.height * scale).rounded(.up)))
+        guard
+            let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: pixelsWide,
+                pixelsHigh: pixelsHigh,
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            ),
+            let context = NSGraphicsContext(bitmapImageRep: rep)
+        else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        context.cgContext.scaleBy(x: scale, y: scale)
+        draw(context)
+        NSGraphicsContext.restoreGraphicsState()
+        rep.size = size
+        let image = NSImage(size: size)
+        image.addRepresentation(rep)
+        return image
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        invalidateRaster()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        invalidateRaster()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        invalidateRaster()
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            if isEnabled != oldValue { invalidateRaster() }
+        }
     }
 
     private var isDarkAppearance: Bool {
@@ -472,39 +661,6 @@ final class PanelLevelSliderView: NSSlider {
 
     private var effectiveFillColor: NSColor {
         isEnabled ? fillColor : NSColor.gray
-    }
-
-    private func drawBarAndFill() {
-        let barRect = barRect(in: bounds)
-
-        let trackColor = isDarkAppearance
-            ? NSColor(white: 1.0, alpha: 0.14)
-            : NSColor(white: 0.0, alpha: 0.10)
-        let trackPath = NSBezierPath(
-            roundedRect: barRect,
-            xRadius: PanelLevelSliderMetrics.barCornerRadius,
-            yRadius: PanelLevelSliderMetrics.barCornerRadius
-        )
-        trackColor.setFill()
-        trackPath.fill()
-
-        guard isEnabled, clampedDoubleValue > 0.001 else { return }
-        let centerX = knobCenter(in: bounds).x
-        let fillWidth = max(0, centerX - barRect.minX)
-        guard fillWidth > 0.5 else { return }
-        let fillRect = NSRect(
-            x: barRect.minX,
-            y: barRect.minY,
-            width: min(fillWidth, barRect.width),
-            height: barRect.height
-        )
-        let fillPath = NSBezierPath(
-            roundedRect: fillRect,
-            xRadius: PanelLevelSliderMetrics.barCornerRadius,
-            yRadius: PanelLevelSliderMetrics.barCornerRadius
-        )
-        effectiveFillColor.setFill()
-        fillPath.fill()
     }
 
     private func drawLabel() {

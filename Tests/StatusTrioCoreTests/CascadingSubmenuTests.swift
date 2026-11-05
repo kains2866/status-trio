@@ -5,6 +5,64 @@ import XCTest
 
 @MainActor
 final class CascadingSubmenuTests: XCTestCase {
+    private final class SheetWindow: NSWindow {
+        var simulatedSheetParent: NSWindow?
+        override var sheetParent: NSWindow? { simulatedSheetParent }
+    }
+
+    func testOnlySheetsAttachedToPanelGroupAreOwned() {
+        let parent = AnchoredStatusPanel()
+        let child = AnchoredStatusPanel()
+        let unrelated = NSWindow()
+        let sheet = SheetWindow()
+        let nestedSheet = SheetWindow()
+        sheet.simulatedSheetParent = parent
+        nestedSheet.simulatedSheetParent = sheet
+        XCTAssertTrue(AnchoredStatusPanel.isSheet(sheet, attachedTo: parent, child: child))
+        XCTAssertTrue(AnchoredStatusPanel.isSheet(nestedSheet, attachedTo: parent, child: child))
+        sheet.simulatedSheetParent = child
+        XCTAssertTrue(AnchoredStatusPanel.isSheet(sheet, attachedTo: parent, child: child))
+        sheet.simulatedSheetParent = unrelated
+        XCTAssertFalse(AnchoredStatusPanel.isSheet(sheet, attachedTo: parent, child: child))
+        XCTAssertFalse(AnchoredStatusPanel.isSheet(parent, attachedTo: parent, child: child),
+                       "the parent must still process clicks on its anchor")
+        XCTAssertFalse(AnchoredStatusPanel.isSheet(nil, attachedTo: parent, child: child))
+    }
+
+    func testSideResizePreservesSelectedTopOrCenterAndScreenBudget() {
+        let frame = NSRect(x: 10, y: 300, width: 330, height: 200)
+        XCTAssertEqual(AnchoredStatusPanel.sideResizeOriginY(frame: frame, height: 300, alignsTop: true), 200)
+        XCTAssertEqual(AnchoredStatusPanel.sideResizeOriginY(frame: frame, height: 300, alignsTop: false), 250)
+        XCTAssertEqual(AnchoredStatusPanel.sideResizeHeightBudget(frame: frame, lower: 100, upper: 700, alignsTop: true), 400)
+        XCTAssertEqual(AnchoredStatusPanel.sideResizeHeightBudget(frame: frame, lower: 100, upper: 700, alignsTop: false), 600)
+    }
+
+    func testSubmenuInheritsBackgroundTestingWindowPolicyOnlyWhenRequested() {
+        let parent = AnchoredStatusPanel()
+        let child = AnchoredStatusPanel()
+        parent.disablesDismissOnResignForTesting = true
+        parent.disablesKeyWindowForTesting = true
+        parent.avoidsOrderFrontRegardlessForTesting = true
+        parent.level = .normal
+        parent.isFloatingPanel = false
+        parent.collectionBehavior = [.ignoresCycle]
+        child.inheritBackgroundTestingPolicy(from: parent)
+        XCTAssertTrue(child.disablesDismissOnResignForTesting)
+        XCTAssertTrue(child.disablesKeyWindowForTesting)
+        XCTAssertTrue(child.avoidsOrderFrontRegardlessForTesting)
+        XCTAssertFalse(child.canBecomeKey)
+        XCTAssertEqual(child.level, .normal)
+        XCTAssertFalse(child.isFloatingPanel)
+        XCTAssertEqual(child.collectionBehavior, [.ignoresCycle])
+
+        let normal = AnchoredStatusPanel()
+        let normalChild = AnchoredStatusPanel()
+        normalChild.inheritBackgroundTestingPolicy(from: normal)
+        XCTAssertTrue(normalChild.canBecomeKey)
+        XCTAssertEqual(normalChild.level, .statusBar)
+        XCTAssertTrue(normalChild.isFloatingPanel)
+    }
+
     func testNewEntryClosesPreviousOwnerAndCloseIsIdempotent() {
         let coordinator = CascadingSubmenuCoordinator()
         let first = UUID(), second = UUID()

@@ -344,6 +344,9 @@ private final class CascadingSubmenuPresenter {
         self.parent = parent
         (parent as? AnchoredStatusPanel)?.submenuCoordinator = resolvedCoordinator
         let panel = AnchoredStatusPanel()
+        if let parent = parent as? AnchoredStatusPanel {
+            panel.inheritBackgroundTestingPolicy(from: parent)
+        }
         let hostingController = StatusPanelHostingController(rootView: makeContent(panel.layoutMetrics))
         host = hostingController
         child = panel
@@ -359,8 +362,10 @@ private final class CascadingSubmenuPresenter {
         let placementRect = NSRect(x: parentBounds.minX, y: anchor.bounds.minY,
                                    width: parentBounds.width, height: anchor.bounds.height)
         panel.show(relativeTo: placementRect, of: anchor, preferredEdge: .maxX, alignsTop: true)
-        panel.makeKey()
-        panel.makeFirstResponder(nil)
+        if !panel.disablesKeyWindowForTesting {
+            panel.makeKey()
+            panel.makeFirstResponder(nil)
+        }
         installMouseMonitor()
         for notification in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
             parentGeometryObservers.append(NotificationCenter.default.addObserver(
@@ -392,6 +397,7 @@ private final class CascadingSubmenuPresenter {
             if event.window === parent { coordinator?.close(owner: owner) }
             return
         }
+        if AnchoredStatusPanel.isSheet(event.window, attachedTo: parent, child: child) { return }
         if event.window === child { return }
         if event.window === parent {
             if let anchor {

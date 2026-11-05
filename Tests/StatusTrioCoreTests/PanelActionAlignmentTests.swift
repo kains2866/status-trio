@@ -186,6 +186,53 @@ final class PanelActionAlignmentTests: XCTestCase {
         }
     }
 
+    func testAudioSlidersAlignAndBrightnessReservesNameColumn() throws {
+        let volumeProbe = try render(
+            VolumeControlsView(
+                state: try makeVolumeState(),
+                actions: StatusPanelActions(),
+                scrollTargets: PopoverScrollTargets(),
+                onOpenSoundSettings: {}
+            )
+        )
+        let micProbe = try render(
+            AudioInputControlsView(
+                state: try makeAudioInputState(showsDeviceList: false),
+                actions: StatusPanelActions(),
+                scrollTargets: PopoverScrollTargets(),
+                onOpenSoundSettings: {}
+            )
+        )
+        let brightnessProbe = try render(
+            BrightnessControlsView(
+                state: BrightnessPanelState(rows: [
+                    BrightnessRowState(
+                        id: "display",
+                        name: "Studio Display",
+                        isBuiltin: false,
+                        scalar: 0.5,
+                        canAdjust: true,
+                        backend: .directDDC,
+                        source: .directDDC,
+                        percentageText: "50%",
+                        accessibilityLabel: "Studio Display brightness",
+                        unavailableText: nil
+                    )
+                ]),
+                actions: StatusPanelActions(),
+                scrollTargets: PopoverScrollTargets(),
+                onOpenDisplaySettings: {}
+            )
+        )
+
+        let volumeX = try XCTUnwrap(volumeProbe.subviewFrame(where: { $0 is NSSlider })?.minX)
+        let micX = try XCTUnwrap(micProbe.subviewFrame(where: { $0 is NSSlider })?.minX)
+        let brightnessX = try XCTUnwrap(brightnessProbe.subviewFrame(where: { $0 is NSSlider })?.minX)
+        XCTAssertEqual(micX, volumeX, accuracy: 0.5, "audio sliders must share their leading slot")
+        XCTAssertEqual(brightnessX - volumeX, 78, accuracy: 1,
+                       "brightness reserves its single-line display name column")
+    }
+
     private func render<V: View>(_ view: V) throws -> SummaryActionAlignmentProbe {
         let suite = "StatusTrioCoreTests.PanelActionAlignment.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

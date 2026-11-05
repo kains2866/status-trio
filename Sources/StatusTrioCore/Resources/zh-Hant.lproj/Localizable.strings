@@ -65,7 +65,7 @@
 "settings.appIcon.middleIcon.batteryPercentage" = "電池百分比";
 "settings.appIcon.middleIcon.power" = "功耗（瓦）";
 "settings.appIcon.middleIcon.chargingStatus" = "充電狀態";
-"settings.appIcon.middleIcon.chargingStatus.description" = "放電時顯示電量百分比，充電時顯示閃電，連接電源時顯示插頭；頂部圓環保持閉合。";
+"settings.appIcon.middleIcon.chargingStatus.description" = "此模式下，頂部圓弧的「充電/連接電源時顯示指示圖示」會失效，避免與中間圖示重複。";
 "settings.appIcon.middleIcon.size" = "中間圖示大小";
 "settings.appIcon.middleIcon.size.description" = "中間顯示的所有內容（Wi‑Fi、藍牙、輸入法、數字）共用這個大小。";
 "settings.appIcon.middleIcon.networkWarnings" = "優先顯示網路異常";
@@ -99,8 +99,11 @@
 "settings.bluetooth.networkErrorPriorityDescription" = "斷線或無網路時仍顯示網路圖示，不顯示藍牙裝置圖示。";
 "settings.bluetooth.batteryLevels" = "顯示藍牙裝置電量";
 "settings.bluetooth.batteryLevelsDescription" = "當狀態面板顯示藍牙裝置時讀取 AirPods 電量，不會額外要求權限。";
-"settings.bluetooth.listeningModePreview" = "預試聆聽模式切換";
-"settings.bluetooth.listeningModePreviewDescription" = "在每台已連結的 AirPods 上顯示模式膠囊，用於介面測試。點擊膠囊的動畫與真機一致，但不會變更 AirPods 的任何設定。";
+"settings.bluetooth.listeningModeTitle" = "顯示聆聽模式控制";
+"settings.bluetooth.listeningModeDescription" = "支援 AirPods 和部分華為耳機：在已連線的裝置上顯示降噪/通透/關閉膠囊。華為僅部分型號支援，切換失敗時會恢復原模式。";
+"settings.bluetooth.listeningModePreview" = "聆聽模式預覽（僅測試）";
+"settings.bluetooth.listeningModePreviewDescription" = "預覽僅注入合成列用於介面測試，切換預覽列不會變更耳機。真實裝置列（含華為）仍依裝置實際支援運作：華為僅部分型號支援，切換失敗時會恢復原模式。";
+"settings.bluetooth.listeningModePreviewOptions" = "預試參數";
 "settings.bluetooth.listeningModePreviewDeviceName" = "預試裝置名";
 "settings.bluetooth.listeningModePreviewDeviceNameDescription" = "預試列顯示的名字。留空使用預設；填入超長名稱可測試截斷。";
 "settings.bluetooth.listeningModePreviewDeviceCount" = "預試列數";
@@ -109,6 +112,11 @@
 "settings.bluetooth.listeningModePreviewLanguageDescription" = "僅讓預試列的模式名以指定語言渲染，面板其他部分維持系統語言。方便比較德語長詞或阿拉伯語由右至左時膠囊如何換行。";
 "settings.bluetooth.showInStatusPanel" = "在狀態面板中顯示藍牙";
 "settings.bluetooth.showInStatusPanelDescription" = "控制狀態面板中的藍牙項目，並與狀態面板設定保持同步。";
+"settings.panel.showBattery" = "在狀態面板中顯示電池";
+"settings.panel.showNetwork" = "在狀態面板中顯示網路";
+"settings.panel.showAudio" = "在狀態面板中顯示音訊";
+"settings.panel.showBrightness" = "在狀態面板中顯示亮度";
+"settings.panel.showItemDescription" = "控制該模組是否顯示在狀態面板中。";
 "settings.bluetooth.powerControl" = "顯示藍牙電源開關";
 "settings.bluetooth.powerControlDescription" = "在狀態面板的藍牙標題列顯示電源開關，不會額外要求權限。";
 "settings.bluetooth.symbolScale" = "藍牙圖示大小";
@@ -126,7 +134,8 @@
 "settings.bluetooth.iconChoice.stereoPair" = "立體聲組合";
 "settings.bluetooth.showDeviceList" = "顯示藍牙裝置列表";
 "settings.bluetooth.showDeviceListDescription" = "在狀態面板的藍牙列下方列出已配對裝置，已連接的排在前面。";
-"settings.bluetooth.deviceListGroup" = "狀態面板列表";
+"settings.bluetooth.deviceListGroup" = "藍牙裝置列表";
+"settings.bluetooth.moreSettings" = "更多設定";
 "settings.bluetooth.maximumVisible" = "最多顯示裝置數";
 "settings.bluetooth.maximumVisibleDescription" = "超出這個數量的裝置需要點按「展開」查看。";
 "settings.bluetooth.orderTitle" = "藍牙裝置順序";
@@ -166,12 +175,14 @@
 "settings.battery.group.charging" = "充電";
 "settings.battery.group.powerModes" = "電量模式";
 "settings.battery.group.power" = "功耗";
+"settings.battery.group.topMarkers" = "頂部標記";
+"settings.battery.group.progress" = "進度";
 "settings.battery.noBatteryNotice" = "目前裝置沒有電池，所以電量顯示預設為 100。";
 "settings.battery.showPercentage" = "顯示電量數字";
 "settings.battery.showChargingIndicator" = "充電/連接電源時顯示指示圖示";
 "settings.battery.chargingDescription" = "開啟後，正在充電或已連接電源時，電量數字會替換為閃電或插頭圖示；關閉則繼續顯示數字。";
-"settings.battery.splitGapProgress" = "頂部有圖示時進度對分";
-"settings.battery.splitGapProgressDescription" = "當頂部缺口顯示閃電、插頭或電量數字時，將圓環進度分成左右兩半：左半為 0–50%、右半為 50–100%，讓缺口不再遮住進度。";
+"settings.battery.splitGapProgress" = "頂部有圖示時左右兩邊平分";
+"settings.battery.splitGapProgressDescription" = "當頂部缺口顯示閃電、插頭或電量數字時，將圓環進度平分成左右兩半：左半為 0–50%、右半為 50–100%，讓缺口不再遮住進度。";
 "settings.battery.chargingEffect" = "充電效果";
 "settings.battery.chargingEffectDescription" = "僅在充電時顯示動態高光；開啟「減少動態效果」時停止。";
 "settings.battery.menuBarChargingEffect" = "選單列充電效果";
@@ -574,6 +585,7 @@
 "wifi.summary.band" = "%@ GHz";
 "wifi.summary.signal" = "%d dBm";
 "wifi.summary.bandAndSignal" = "%@ · %@";
+"wifi.summary.nameAccessHint" = "點此授權顯示 Wi-Fi 名稱";
 "settings.bluetooth.hideDevice" = "隱藏此裝置";
 "settings.bluetooth.showDevice" = "顯示此裝置";
 "settings.bluetooth.permissionRequired" = "需要藍牙權限";
@@ -755,3 +767,27 @@
 "battery.powerMode.low" = "低電量";
 "battery.powerMode.high" = "高電量";
 "battery.powerMode.highRequiresPower" = "高電量模式需要連接電源後才會生效。";
+
+"settings.network.powerControl" = "顯示 Wi-Fi 電源開關";
+"settings.network.powerControlDescription" = "在狀態面板的 Wi-Fi 標題列顯示電源開關。";
+"wifi.power.turnOn" = "開啟 Wi-Fi";
+"wifi.power.turnOff" = "關閉 Wi-Fi";
+"wifi.power.unknown" = "Wi-Fi 狀態無法取得。";
+"wifi.power.changeFailed" = "Wi-Fi 狀態未能變更。";
+"wifi.power.offConfirmTitle" = "要關閉 Wi-Fi 嗎？";
+"wifi.power.offConfirmMessage" = "目前網路將中斷連線。你可以從此面板或系統設定重新開啟 Wi-Fi。";
+"wifi.power.offConfirmAction" = "關閉";
+// Settings subpage labels
+"settings.subtopic.appIcon.appearance" = "整體外觀";
+"settings.subtopic.appIcon.ring" = "頂部圓弧";
+"settings.subtopic.appIcon.bottomIndicator" = "底部指示器";
+"settings.subtopic.appIcon.middleIcon" = "中間圖示";
+"settings.subtopic.battery.charging" = "充電";
+"settings.subtopic.battery.powerMode" = "電源模式";
+"settings.subtopic.battery.energy" = "能耗資訊";
+"settings.subtopic.audio.volumeControl" = "音量控制";
+"settings.subtopic.audio.audioDevices" = "音訊裝置";
+"settings.subtopic.audio.displayVolume" = "顯示器音量";
+"settings.subtopic.bluetooth.listeningMode" = "聆聽模式";
+"settings.subtopic.bluetooth.deviceBattery" = "裝置電量";
+"settings.subtopic.bluetooth.deviceManagement" = "裝置管理";

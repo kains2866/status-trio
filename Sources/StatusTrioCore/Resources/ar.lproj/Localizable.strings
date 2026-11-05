@@ -48,7 +48,7 @@
 "settings.appIcon.middleIcon.batteryPercentage" = "نسبة البطارية";
 "settings.appIcon.middleIcon.power" = "الطاقة (واط)";
 "settings.appIcon.middleIcon.chargingStatus" = "حالة الشحن";
-"settings.appIcon.middleIcon.chargingStatus.description" = "يعرض نسبة البطارية عند العمل بالبطارية، وصاعقة أثناء الشحن، وقابسًا عند توصيل الطاقة؛ تبقى الحلقة مكتملة.";
+"settings.appIcon.middleIcon.chargingStatus.description" = "في هذا الوضع يُعطَّل خيار «إظهار رمز أثناء الشحن أو الاتصال بالطاقة» في القوس العلوي لتجنب تكرار الأيقونة.";
 "settings.appIcon.middleIcon.size" = "حجم الأيقونة الوسطى";
 "settings.appIcon.middleIcon.size.description" = "حجم واحد لكل محتوى المنتصف: Wi-Fi وBluetooth ومصدر الإدخال والأرقام.";
 "settings.appIcon.middleIcon.networkWarnings" = "إعطاء أولوية لمشاكل الشبكة";
@@ -82,8 +82,11 @@
 "settings.bluetooth.networkErrorPriorityDescription" = "تبقى أيقونة الشبكة ظاهرة عند انقطاع الاتصال أو غياب الإنترنت بدلًا من أيقونة جهاز Bluetooth.";
 "settings.bluetooth.batteryLevels" = "عرض مستويات بطارية Bluetooth";
 "settings.bluetooth.batteryLevelsDescription" = "تقرأ مستويات بطارية AirPods أثناء عرض إدخال Bluetooth. لن يظهر طلب إذن إضافي.";
-"settings.bluetooth.listeningModePreview" = "معاينة مُبدِّل وضع السمع";
-"settings.bluetooth.listeningModePreviewDescription" = "اعرض كبسولات الوضع على جميع AirPods المتصلة لاختبار الواجهة. النقر على كبسولة يُحركها كما على الجهاز الفعلي لكن دون تغيير أي إعداد في AirPods.";
+"settings.bluetooth.listeningModeTitle" = "عرض عناصر التحكم في وضع السمع";
+"settings.bluetooth.listeningModeDescription" = "يدعم AirPods وبعض سماعات HUAWEI: يعرض كبسولات إلغاء الضوضاء/الشفافية/إيقاف على الأجهزة المتصلة. لا تُدعم سوى بعض طرز HUAWEI؛ وإذا فشل التبديل فسيُستعاد الوضع السابق.";
+"settings.bluetooth.listeningModePreview" = "معاينة وضع الاستماع (للاختبار فقط)";
+"settings.bluetooth.listeningModePreviewDescription" = "تضيف المعاينة صفوفًا اصطناعية لاختبار الواجهة فقط؛ تبديل صف المعاينة لا يغيّر سماعاتك. تظل صفوف الأجهزة الفعلية، بما فيها HUAWEI، تعمل وفق دعم كل جهاز: لا تُدعم سوى بعض طرز HUAWEI، وإذا فشل التبديل فسيُستعاد الوضع السابق.";
+"settings.bluetooth.listeningModePreviewOptions" = "خيارات المعاينة";
 "settings.bluetooth.listeningModePreviewDeviceName" = "اسم جهاز المعاينة";
 "settings.bluetooth.listeningModePreviewDeviceNameDescription" = "الاسم الظاهر على صفوف المعاينة. اتركه فارغًا لاستخدام الاسم الافتراضي، أو اكتب اسمًا طويلًا جدًا لاختبار الاقتطاع.";
 "settings.bluetooth.listeningModePreviewDeviceCount" = "عدد صفوف المعاينة";
@@ -92,6 +95,11 @@
 "settings.bluetooth.listeningModePreviewLanguageDescription" = "اعرض أسماء الكبسولات في صفوف المعاينة بلغة مختارة مع إبقاء بقية اللوحة بلغة النظام. مفيد لمقارنة كيف تلتف كلمة ألمانية طويلة أو نص عربي من اليمين إلى اليسار.";
 "settings.bluetooth.showInStatusPanel" = "إظهار Bluetooth في لوحة الحالة";
 "settings.bluetooth.showInStatusPanelDescription" = "يتحكم في عنصر Bluetooth بلوحة الحالة ويبقى متزامنًا مع إعدادات لوحة الحالة.";
+"settings.panel.showBattery" = "إظهار البطارية في لوحة الحالة";
+"settings.panel.showNetwork" = "إظهار الشبكة في لوحة الحالة";
+"settings.panel.showAudio" = "إظهار الصوت في لوحة الحالة";
+"settings.panel.showBrightness" = "إظهار السطوع في لوحة الحالة";
+"settings.panel.showItemDescription" = "التحكم في ظهور هذه الوحدة في لوحة الحالة.";
 "settings.bluetooth.powerControl" = "إظهار زر الطاقة في Bluetooth";
 "settings.bluetooth.powerControlDescription" = "يضيف زر الطاقة إلى لوحة الحالة. لا يتطلب أي إذن إضافي.";
 "settings.bluetooth.symbolScale" = "حجم أيقونة Bluetooth";
@@ -109,7 +117,8 @@
 "settings.bluetooth.iconChoice.stereoPair" = "زوج استريو";
 "settings.bluetooth.showDeviceList" = "إظهار قائمة أجهزة Bluetooth";
 "settings.bluetooth.showDeviceListDescription" = "يسرد الأجهزة المقترنة أسفل إدخال Bluetooth في لوحة الحالة. تظهر الأجهزة المتصلة أولًا.";
-"settings.bluetooth.deviceListGroup" = "قائمة لوحة الحالة";
+"settings.bluetooth.deviceListGroup" = "قائمة أجهزة Bluetooth";
+"settings.bluetooth.moreSettings" = "إعدادات إضافية";
 "settings.bluetooth.maximumVisible" = "الحد الأقصى لأجهزة Bluetooth الظاهرة";
 "settings.bluetooth.maximumVisibleDescription" = "عدد الأجهزة المعروضة قبل زر التوسيع.";
 "settings.bluetooth.orderTitle" = "ترتيب أجهزة Bluetooth";
@@ -149,6 +158,8 @@
 "settings.battery.group.charging" = "الشحن";
 "settings.battery.group.powerModes" = "أوضاع الطاقة";
 "settings.battery.group.power" = "الطاقة";
+"settings.battery.group.topMarkers" = "العلامات العلوية";
+"settings.battery.group.progress" = "التقدم";
 "settings.battery.noBatteryNotice" = "لا يحتوي هذا الجهاز على بطارية، لذا يُعرض مستوى البطارية على أنه 100 افتراضيًا.";
 "settings.battery.showPercentage" = "إظهار نسبة البطارية";
 "settings.battery.showChargingIndicator" = "إظهار رمز أثناء الشحن أو الاتصال بالطاقة";
@@ -574,6 +585,7 @@
 "wifi.summary.band" = "%@ GHz";
 "wifi.summary.signal" = "%d dBm";
 "wifi.summary.bandAndSignal" = "%@ · %@";
+"wifi.summary.nameAccessHint" = "انقر للسماح بالموقع لإظهار اسم Wi‑Fi";
 "settings.bluetooth.hideDevice" = "إخفاء الجهاز";
 "settings.bluetooth.showDevice" = "إظهار الجهاز";
 "settings.bluetooth.permissionRequired" = "يلزم إذن Bluetooth";
@@ -755,3 +767,27 @@
 "battery.powerMode.low" = "طاقة منخفضة";
 "battery.powerMode.high" = "طاقة عالية";
 "battery.powerMode.highRequiresPower" = "لا يسري وضع الطاقة العالية إلا عند توصيل محول الطاقة.";
+
+"settings.network.powerControl" = "إظهار زر طاقة Wi-Fi";
+"settings.network.powerControlDescription" = "يضيف زر طاقة Wi-Fi إلى لوحة الحالة.";
+"wifi.power.turnOn" = "تشغيل Wi-Fi";
+"wifi.power.turnOff" = "إيقاف Wi-Fi";
+"wifi.power.unknown" = "حالة Wi-Fi غير متاحة.";
+"wifi.power.changeFailed" = "لم تتغير حالة Wi-Fi.";
+"wifi.power.offConfirmTitle" = "هل تريد إيقاف Wi-Fi؟";
+"wifi.power.offConfirmMessage" = "ستنقطع الشبكة الحالية. يمكنك تشغيل Wi-Fi مرة أخرى من هذه اللوحة أو من إعدادات النظام.";
+"wifi.power.offConfirmAction" = "إيقاف";
+// Settings subpage labels
+"settings.subtopic.appIcon.appearance" = "المظهر العام";
+"settings.subtopic.appIcon.ring" = "القوس العلوي";
+"settings.subtopic.appIcon.bottomIndicator" = "المؤشر السفلي";
+"settings.subtopic.appIcon.middleIcon" = "الأيقونة الوسطى";
+"settings.subtopic.battery.charging" = "الشحن";
+"settings.subtopic.battery.powerMode" = "وضع الطاقة";
+"settings.subtopic.battery.energy" = "معلومات الطاقة";
+"settings.subtopic.audio.volumeControl" = "التحكم في مستوى الصوت";
+"settings.subtopic.audio.audioDevices" = "أجهزة الصوت";
+"settings.subtopic.audio.displayVolume" = "مستوى صوت الشاشة";
+"settings.subtopic.bluetooth.listeningMode" = "وضع الاستماع";
+"settings.subtopic.bluetooth.deviceBattery" = "بطارية الجهاز";
+"settings.subtopic.bluetooth.deviceManagement" = "إدارة الأجهزة";

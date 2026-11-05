@@ -32,11 +32,18 @@ struct StatusPopoverView: View {
     let quit: () -> Void
     /// The footer's Actions menu closes the panel before opening another window.
     var dismissPanel: () -> Void = {}
+    /// Reject measurements from a retained tree after its hosting controller is replaced.
+    var contentMeasurementID: UUID? = nil
 
     var body: some View {
-        // The summary stays mounted while details open alongside it. Each
-        // window owns one capped scroll surface; the main footer stays pinned.
-        StatusPanelScrollArea(maximumHeight: layoutMetrics.maximumPanelHeight) {
+        // Keep the summary mounted while children open, using the upstream height budget.
+        StatusPanelScrollArea(
+            maximumHeight: layoutMetrics.maximumPanelHeight,
+            fillsWindow: layoutMetrics.fillsWindow,
+            onNaturalHeight: {
+                layoutMetrics.measure(contentHeight: $0, from: contentMeasurementID)
+            }
+        ) {
             summary
                 .padding(.top, 14)
                 .padding(.horizontal, 14)
@@ -219,7 +226,7 @@ struct StatusPopoverView: View {
                 routeContent
             }
         case .network:
-            NetworkStatusView(
+            WiFiPowerSummaryView(panel: panel,
                 state: panel.network,
                 onOpenWiFiDetails: { panel.showWiFiPage(showsDetailsInitially: $0) },
                 onOpenWiredDetails: { panel.showWiredPage() },
@@ -247,7 +254,9 @@ struct StatusPopoverView: View {
                 listOptions: panel.settings.bluetoothDeviceListOptions,
                 showsRadioPowerControl: panel.settings.showsBluetoothPowerControl,
                 showsBluetoothInStatusPanel: panel.settings.enabledPopupSections.contains(.bluetooth),
-                listeningModePresentations: panel.store.bluetoothListeningModes.huaweiBluetoothRowPresentations,
+                listeningModePresentations: panel.settings.showsBluetoothListeningMode
+                    ? panel.store.bluetoothListeningModes.huaweiBluetoothRowPresentations
+                    : [:],
                 onSelectListeningMode: { panel.actions.setListeningMode(address: $0, mode: $1) },
                 onRequestAuthorization: requestBluetoothAuthorization,
                 onOpenBluetoothSettings: openBluetoothSettings,
@@ -293,5 +302,48 @@ struct StatusPopoverView: View {
     private func copyValue(_ value: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
+    }
+}
+
+private struct WiFiPowerSummaryView: View {
+    @ObservedObject var panel: StatusPanelViewModel
+    @ObservedObject private var store: SystemStatusStore
+    let state: PanelSummaryState
+    let onOpenWiFiDetails: (Bool) -> Void
+    let onOpenWiredDetails: () -> Void
+    let onRequestNameAccess: () -> Void
+    let onOpenWiFiSettings: () -> Void
+    let onOpenNetworkSettings: () -> Void
+    let onOpenLocationSettings: () -> Void
+
+    init(panel: StatusPanelViewModel, state: PanelSummaryState, onOpenWiFiDetails: @escaping (Bool) -> Void, onOpenWiredDetails: @escaping () -> Void, onRequestNameAccess: @escaping () -> Void, onOpenWiFiSettings: @escaping () -> Void, onOpenNetworkSettings: @escaping () -> Void, onOpenLocationSettings: @escaping () -> Void) {
+        self.panel = panel
+        self.store = panel.store
+        self.state = state
+        self.onOpenWiFiDetails = onOpenWiFiDetails
+        self.onOpenWiredDetails = onOpenWiredDetails
+        self.onRequestNameAccess = onRequestNameAccess
+        self.onOpenWiFiSettings = onOpenWiFiSettings
+        self.onOpenNetworkSettings = onOpenNetworkSettings
+        self.onOpenLocationSettings = onOpenLocationSettings
+    }
+
+    var body: some View {
+        NetworkStatusView(
+            showsWiFiPowerControl: WiFiPowerControlVisibility.showsSummaryToggle(
+                state: store.popupSnapshot.wifi.state,
+                isEnabled: panel.settings.showsWiFiPowerControl
+            ),
+            wifiPowerIsOn: WiFiPowerControlVisibility.isRadioOn(state: store.popupSnapshot.wifi.state),
+            wifiPowerCanSet: !store.wifiPowerIsChanging,
+            wifiPowerRequiresConfirmation: WiFiPowerTogglePolicy.requiresConfirmation(
+                for: store.popupSnapshot.wifi.state
+            ),
+            wifiPowerFailed: store.wifiPowerFailed,
+            onSetWiFiPower: { store.setWiFiPower($0) },
+            state: state, onOpenWiFiDetails: onOpenWiFiDetails, onOpenWiredDetails: onOpenWiredDetails,
+            onRequestNameAccess: onRequestNameAccess, onOpenWiFiSettings: onOpenWiFiSettings,
+            onOpenNetworkSettings: onOpenNetworkSettings, onOpenLocationSettings: onOpenLocationSettings
+        )
     }
 }
