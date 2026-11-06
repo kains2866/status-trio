@@ -791,3 +791,10 @@
 "settings.subtopic.bluetooth.listeningMode" = "وضع الاستماع";
 "settings.subtopic.bluetooth.deviceBattery" = "بطارية الجهاز";
 "settings.subtopic.bluetooth.deviceManagement" = "إدارة الأجهزة";
+
+"battery.details.uptime" = "مدة تشغيل النظام";
+"battery.details.maxCapacity" = "أقصى سعة";
+"battery.details.batteryCondition" = "حالة البطارية";
+"battery.details.condition.normal" = "طبيعي";
+"battery.details.condition.service" = "يُنصح بالصيانة";
+"battery.details.highPower.unsupported" = "غير مدعوم";

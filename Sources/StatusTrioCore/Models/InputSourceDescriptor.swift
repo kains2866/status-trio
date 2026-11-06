@@ -19,6 +19,33 @@ struct InputSourceDescriptor: Equatable, Hashable, Sendable {
 }
 
 extension InputSourceDescriptor {
+    /// Only Apple's known Pinyin modes replace their shared system image with
+    /// our explicit script marker. Third-party IMEs retain their own icons.
+    var prefersShortLabel: Bool {
+        switch id.lowercased() {
+        case "com.apple.inputmethod.scim.itabc": return shortLabel == "简"
+        case "com.apple.inputmethod.tcim.pinyin": return shortLabel == "繁"
+        default: return false
+        }
+    }
+
+    /// Explicit English layouts only: language metadata does not establish an
+    /// IME's internal Latin mode, so other input sources remain unchanged.
+    func applying(_ modifiers: InputSourceModifiers) -> InputSourceDescriptor {
+        let englishLayouts: Set<String> = [
+            "com.apple.keylayout.abc", "com.apple.keylayout.us",
+            "com.apple.keylayout.usextended", "com.apple.keylayout.british",
+            "com.apple.keylayout.british-pc", "com.apple.keylayout.australian",
+            "com.apple.keylayout.canadian", "com.apple.keylayout.irish",
+            "com.apple.keylayout.dvorak", "com.apple.keylayout.colemak"
+        ]
+        guard englishLayouts.contains(id.lowercased()) else { return self }
+        return InputSourceDescriptor(
+            id: id, localizedName: localizedName, primaryLanguage: primaryLanguage,
+            iconURL: nil, shortLabel: modifiers.isUppercase ? "A" : "a"
+        )
+    }
+
     /// The descriptor as the icon is allowed to draw it.
     ///
     /// An input source whose icon file is gone must degrade to its short label,
@@ -29,7 +56,7 @@ extension InputSourceDescriptor {
     func resolvedForDrawing(
         fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> InputSourceDescriptor {
-        guard let iconURL, !fileExists(iconURL) else { return self }
+        guard let iconURL, prefersShortLabel || !fileExists(iconURL) else { return self }
         return InputSourceDescriptor(
             id: id,
             localizedName: localizedName,

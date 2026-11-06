@@ -8,6 +8,20 @@ final class NativePanelLevelSliderTests: XCTestCase {
         super.setUp()
         _ = NSApplication.shared
     }
+
+    func testTrackUsesSystemFillAcrossLightAndDarkAppearances() {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = NSAppearance(named: name)!
+            let slider = NativePanelLevelSliderControl()
+            let reference = NSSlider()
+            slider.appearance = appearance
+            reference.appearance = appearance
+            XCTAssertEqual(slider.trackFillColor, reference.trackFillColor,
+                           "the thin slider must not force a text color over the system material")
+            XCTAssertEqual(slider.controlSize, .small)
+            XCTAssertEqual(slider.intrinsicContentSize.height, 30)
+        }
+    }
     func testContinuousGestureCoalescesBindingWritesAndFlushesNewestBeforeFinish() {
         let slider = NativePanelLevelSliderControl()
         var values: [Double] = []

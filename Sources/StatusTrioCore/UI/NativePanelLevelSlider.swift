@@ -50,7 +50,8 @@ final class NativePanelLevelSliderControl: NSSlider {
         isVertical = false
         sliderType = .linear
         controlSize = .small
-        trackFillColor = .secondaryLabelColor
+        // Leave the fill unset so AppKit owns its tint and material in both
+        // appearances, including native Liquid Glass on supported systems.
         target = self
         action = #selector(valueChanged)
     }
