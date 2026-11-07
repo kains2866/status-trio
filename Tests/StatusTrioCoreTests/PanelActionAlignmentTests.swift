@@ -5,7 +5,7 @@ import XCTest
 
 @MainActor
 final class PanelActionAlignmentTests: XCTestCase {
-    func testVolumeControlsCenterMuteAndSettingsWithTheSliderRow() throws {
+    func testFallbackVolumeControlsCenterMuteAndSettingsWithTheSliderRow() throws {
         let state = try makeVolumeState()
         let probe = try render(
             VolumeControlsView(
@@ -186,7 +186,7 @@ final class PanelActionAlignmentTests: XCTestCase {
         }
     }
 
-    func testAudioSlidersAlignAndBrightnessReservesNameColumn() throws {
+    func testFallbackAudioSlidersAlignAndBrightnessReservesNameColumn() throws {
         let volumeProbe = try render(
             VolumeControlsView(
                 state: try makeVolumeState(),
@@ -233,6 +233,22 @@ final class PanelActionAlignmentTests: XCTestCase {
                        "brightness reserves its single-line display name column")
     }
 
+    func testPerDeviceAudioSlidersShareTheExternalNameAndMuteColumns() throws {
+        let volumeProbe = try render(VolumeControlsView(
+            state: try makeVolumeState(showsDeviceList: true), actions: StatusPanelActions(),
+            scrollTargets: PopoverScrollTargets(), onOpenSoundSettings: {}))
+        let inputProbe = try render(AudioInputControlsView(
+            state: try makeAudioInputState(showsDeviceList: true), actions: StatusPanelActions(),
+            scrollTargets: PopoverScrollTargets(), onOpenSoundSettings: {}))
+        let outputFrame = try XCTUnwrap(volumeProbe.subviewFrame(where: { $0 is NSSlider }))
+        let inputFrame = try XCTUnwrap(inputProbe.subviewFrame(where: { $0 is NSSlider }))
+        XCTAssertEqual(outputFrame.minX, inputFrame.minX, accuracy: 0.5)
+        XCTAssertEqual(outputFrame.width, inputFrame.width, accuracy: 0.5)
+        XCTAssertGreaterThan(outputFrame.minX, 120, "selection icon, external name, and independent mute precede the slider")
+        XCTAssertGreaterThan(outputFrame.width, 100)
+        XCTAssertEqual(outputFrame.height, 30, accuracy: 0.5)
+    }
+
     private func render<V: View>(_ view: V) throws -> SummaryActionAlignmentProbe {
         let suite = "StatusTrioCoreTests.PanelActionAlignment.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -255,7 +271,7 @@ final class PanelActionAlignmentTests: XCTestCase {
         return try XCTUnwrap(SummaryActionAlignmentProbe(hosting))
     }
 
-    private func makeVolumeState() throws -> VolumePanelState {
+    private func makeVolumeState(showsDeviceList: Bool = false) throws -> VolumePanelState {
         let suite = "StatusTrioCoreTests.VolumeActionAlignment.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removeTestSuite(named: suite) }
@@ -265,13 +281,13 @@ final class PanelActionAlignmentTests: XCTestCase {
                 scalar: 0.4,
                 isMuted: false,
                 deviceName: "MacBook Pro Speakers",
-                outputDevices: [
+                outputDevices: showsDeviceList ? [
                     AudioOutputDevice(
                         id: 1,
                         name: "MacBook Pro Speakers",
                         isCurrent: true
                     )
-                ]
+                ] : []
             ),
             controllerAvailable: true,
             deviceList: AudioOutputListPreferences(visibleLimit: nil),

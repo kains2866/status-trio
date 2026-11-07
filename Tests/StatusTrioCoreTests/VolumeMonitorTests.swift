@@ -4,6 +4,34 @@ import XCTest
 
 @MainActor
 final class VolumeMonitorTests: XCTestCase {
+    func testExplicitCommandsOnlyDispatchToSupportedIdentifiedRow() async {
+        let level = AudioDeviceLevel(scalar: 0.4, canAdjust: true, muteState: .muted, canMute: true)
+        let devices = [AudioOutputDevice(id: 42, name: "Current", uid: "current", isCurrent: true, volume: 0.4),
+                       AudioOutputDevice(id: 77, name: "Other", uid: "other", isCurrent: false, level: level),
+                       AudioOutputDevice(id: 88, name: "Unsupported", uid: "unsupported", isCurrent: false, level: .unavailable)]
+        let controller = FakeAudioOutputController(devices: devices)
+        let reader = FakeVolumeReader(result: VolumeReading(scalar: 0.4, isMuted: true, deviceName: "Current", currentDevice: devices[0]))
+        let monitor = VolumeMonitor(statusReader: InlineAudioStatusReader(reader: reader, outputController: controller),
+                                    eventMonitor: FakeVolumeEventMonitor(), outputController: controller)
+        monitor.start()
+        var iterator = monitor.updates.makeAsyncIterator()
+        _ = await iterator.next()
+        monitor.setVolume(0.8, forDeviceID: 77, expectedUID: "other")
+        monitor.toggleMute(forDeviceID: 77, expectedUID: "other")
+        monitor.setVolume(0.2, forDeviceID: 77, expectedUID: "stale")
+        monitor.toggleMute(forDeviceID: 88, expectedUID: "unsupported")
+        XCTAssertEqual(controller.targetVolumeIDs, [77])
+        XCTAssertEqual(controller.targetMuteIDs, [77])
+        XCTAssertEqual(controller.defaultCommandCount, 0)
+        XCTAssertEqual(controller.selectedIDs, [])
+        monitor.setDetailsVisible(false)
+        monitor.setVolume(0.3, forDeviceID: 42, expectedUID: "current")
+        XCTAssertEqual(controller.targetVolumeIDs, [77, 42], "Hidden inventory retains current-device control")
+        monitor.stop()
+        monitor.setVolume(0.2, forDeviceID: 77, expectedUID: "other")
+        XCTAssertEqual(controller.targetVolumeIDs, [77, 42])
+    }
+
     func testReleasingTheMonitorOffTheMainThreadDoesNotTrap() async {
         // `deinit` used `MainActor.assumeIsolated`, which traps when the last
         // reference is released from a background thread (a test teardown, a
@@ -166,7 +194,8 @@ final class VolumeMonitorTests: XCTestCase {
                 scalar: 0.42,
                 isMuted: true,
                 deviceName: "MacBook Pro Speakers",
-                controlSource: .native
+                controlSource: .native,
+                nativeDeviceLevelReadbackRevision: 1
             )
         )
         monitor.stop()
@@ -201,7 +230,8 @@ final class VolumeMonitorTests: XCTestCase {
             VolumeStatus(
                 scalar: nil,
                 isMuted: true,
-                deviceName: "USB Headset"
+                deviceName: "USB Headset",
+                nativeDeviceLevelReadbackRevision: 1
             )
         )
         monitor.stop()
@@ -983,6 +1013,14 @@ private final class InlineAudioStatusReader: AudioStatusReadingProviding {
 
 @MainActor
 private final class FakeAudioOutputController: AudioOutputControlling {
+    func isCurrentOutputDevice(_ deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+    var targetVolumeIDs: [AudioDeviceID] = []
+    var targetMuteIDs: [AudioDeviceID] = []
+    var selectedIDs: [AudioDeviceID] = []
+    var defaultCommandCount = 0
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { targetVolumeIDs.append(deviceID); return true }
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { targetMuteIDs.append(deviceID); return true }
+
     let devices: [AudioOutputDevice]
     private(set) var outputDevicesCallCount = 0
 
@@ -995,9 +1033,9 @@ private final class FakeAudioOutputController: AudioOutputControlling {
         return devices
     }
 
-    func setVolume(_ scalar: Double) -> Bool { true }
-    func toggleMute() -> Bool { true }
-    func selectOutputDevice(_ deviceID: AudioDeviceID) -> Bool { true }
+    func setVolume(_ scalar: Double) -> Bool { defaultCommandCount += 1; return true }
+    func toggleMute() -> Bool { defaultCommandCount += 1; return true }
+    func selectOutputDevice(_ deviceID: AudioDeviceID) -> Bool { selectedIDs.append(deviceID); return true }
 }
 
 private final class FakeVolumeReader: VolumeReadingProviding {

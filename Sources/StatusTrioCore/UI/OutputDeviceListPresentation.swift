@@ -51,6 +51,30 @@ enum OutputDeviceListPresentation {
         AudioDeviceOrder.isHidden(uid: device.uid, in: hiddenUIDs)
     }
 
+    static func visibleDevices(
+        from rows: [PanelAudioDeviceRow],
+        limit: Int?,
+        isExpanded: Bool
+    ) -> [PanelAudioDeviceRow] {
+        guard !isExpanded, let limit else { return rows }
+        let count = max(0, limit)
+        var visible = Array(rows.prefix(count))
+        if let selected = rows.first(where: \.selected), !visible.contains(where: { $0.key == selected.key }) {
+            if !visible.isEmpty { visible.removeLast() }
+            visible.append(selected)
+        }
+        return visible
+    }
+
+    static func overflowRows(from rows: [PanelAudioDeviceRow], limit: Int?) -> [PanelAudioDeviceRow] {
+        let visible = Set(visibleDevices(from: rows, limit: limit, isExpanded: false).map(\.key))
+        return rows.filter { !visible.contains($0.key) }
+    }
+
+    static func canToggleExpansion(for rows: [PanelAudioDeviceRow], limit: Int?) -> Bool {
+        !overflowRows(from: rows, limit: limit).isEmpty
+    }
+
     static func visibleDevices<Device>(
         from devices: [Device],
         limit: Int?,

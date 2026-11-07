@@ -3,11 +3,24 @@ import CoreAudio
 import Darwin
 import Foundation
 
+/// Injectable command boundary; tests exercise identity and routing without HAL writes.
+struct AudioOutputCommandAccess: Sendable {
+    let currentDeviceID: @MainActor @Sendable () -> AudioDeviceID?
+    let uid: @MainActor @Sendable (AudioDeviceID) -> String?
+    let level: @MainActor @Sendable (AudioDeviceID) -> AudioDeviceLevel
+    let writeVolume: @MainActor @Sendable (AudioDeviceID, Float32) -> Bool
+    let writeMute: @MainActor @Sendable (AudioDeviceID, Bool) -> Bool
+}
+
 @MainActor
 final class CoreAudioOutputController: AudioOutputControlling {
     nonisolated private let systemObjectID = AudioObjectID(kAudioObjectSystemObject)
 
-    nonisolated init() {}
+    private let commandAccess: AudioOutputCommandAccess?
+
+    nonisolated init() { commandAccess = nil }
+
+    init(commandAccess: AudioOutputCommandAccess) { self.commandAccess = commandAccess }
 
     // Read-only helpers use local storage and immutable device identifiers, so
     // the background snapshot reader never accesses command-side actor state.
@@ -30,14 +43,14 @@ final class CoreAudioOutputController: AudioOutputControlling {
                     name: deviceName(for: deviceID),
                     uid: deviceUID(for: deviceID),
                     isCurrent: deviceID == currentDeviceID,
-                    volume: volume(for: deviceID),
                     transport: transport(for: deviceID),
                     dataSource: dataSource(for: deviceID),
                     iconURL: iconURL(for: deviceID),
                     modelUID: stringProperty(
                         for: deviceID,
                         selector: kAudioDevicePropertyModelUID
-                    )
+                    ),
+                    level: level(for: deviceID)
                 )
             }
             .sorted { lhs, rhs in
@@ -81,6 +94,86 @@ final class CoreAudioOutputController: AudioOutputControlling {
             _ = setMuted(false, for: deviceID)
         }
         return true
+    }
+
+    /// Explicit-device writes never change the system route or implicitly unmute.
+    @discardableResult
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool {
+        guard scalar.isFinite, matchesIdentity(deviceID, expectedUID: expectedUID),
+              commandLevel(for: deviceID).canAdjust else { return false }
+        let value = Float32(min(1, max(0, scalar)))
+        return commandAccess?.writeVolume(deviceID, value) ?? writeVolume(value, for: deviceID)
+    }
+
+    @discardableResult
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool {
+        guard matchesIdentity(deviceID, expectedUID: expectedUID) else { return false }
+        let snapshot = commandLevel(for: deviceID)
+        guard snapshot.canMute, snapshot.muteState != .unknown else { return false }
+        let muted = snapshot.muteState != .muted
+        return commandAccess?.writeMute(deviceID, muted) ?? setMuted(muted, for: deviceID)
+    }
+
+    func isCurrentOutputDevice(_ deviceID: AudioDeviceID, expectedUID: String?) -> Bool {
+        let currentID = commandAccess.map { $0.currentDeviceID() } ?? defaultOutputDeviceID()
+        return currentID == deviceID && matchesIdentity(deviceID, expectedUID: expectedUID)
+    }
+
+    private func matchesIdentity(_ deviceID: AudioDeviceID, expectedUID: String?) -> Bool {
+        guard deviceID != kAudioObjectUnknown, let expectedUID, !expectedUID.isEmpty,
+              (commandAccess.map { $0.uid(deviceID) } ?? deviceUID(for: deviceID)) == expectedUID else { return false }
+        return commandAccess != nil || hasOutputStreams(deviceID: deviceID)
+    }
+
+    private func commandLevel(for deviceID: AudioDeviceID) -> AudioDeviceLevel {
+        commandAccess?.level(deviceID) ?? level(for: deviceID)
+    }
+
+    private func writeVolume(_ value: Float32, for deviceID: AudioDeviceID) -> Bool {
+        if setScalarProperty(value, objectID: deviceID, selector: kAudioDevicePropertyVolumeScalar,
+                             scope: kAudioObjectPropertyScopeOutput, element: kAudioObjectPropertyElementMain) {
+            return true
+        }
+        var written = false
+        for element in CoreAudioOutputChannelElements.channels(for: deviceID) {
+            if setScalarProperty(value, objectID: deviceID, selector: kAudioDevicePropertyVolumeScalar,
+                                 scope: kAudioObjectPropertyScopeOutput, element: element) { written = true }
+        }
+        return written
+    }
+
+    nonisolated func level(for deviceID: AudioDeviceID) -> AudioDeviceLevel {
+        let elements = CoreAudioOutputChannelElements.all(for: deviceID)
+        let scalar = volume(for: deviceID)
+        let masterMute = readUInt32Property(
+            objectID: deviceID, selector: kAudioDevicePropertyMute,
+            scope: kAudioObjectPropertyScopeOutput, element: kAudioObjectPropertyElementMain
+        )
+        let channelMutes: [UInt32] = masterMute == nil ? elements.filter {
+            $0 != kAudioObjectPropertyElementMain
+        }.compactMap { element in
+            readUInt32Property(objectID: deviceID, selector: kAudioDevicePropertyMute,
+                               scope: kAudioObjectPropertyScopeOutput, element: element)
+        } : []
+        let muteState = Self.muteState(master: masterMute, channels: channelMutes)
+        func canWrite(_ selector: AudioObjectPropertySelector) -> Bool {
+            elements.contains { element in
+                var address = propertyAddress(selector: selector, scope: kAudioObjectPropertyScopeOutput, element: element)
+                return isSettable(objectID: deviceID, address: &address)
+            }
+        }
+        return AudioDeviceLevel(scalar: scalar, canAdjust: scalar != nil && canWrite(kAudioDevicePropertyVolumeScalar),
+                                muteState: muteState, canMute: muteState != .unknown && canWrite(kAudioDevicePropertyMute))
+    }
+
+    /// A readable master control is authoritative, matching `setMuted`'s master-first writes.
+    /// Channel aggregation is needed only for devices without a readable master.
+    nonisolated static func muteState(master: UInt32?, channels: [UInt32]) -> AudioDeviceMuteState {
+        if let master { return master == 0 ? .unmuted : .muted }
+        guard !channels.isEmpty else { return .unknown }
+        if channels.allSatisfy({ $0 != 0 }) { return .muted }
+        if channels.allSatisfy({ $0 == 0 }) { return .unmuted }
+        return .partial
     }
 
     @discardableResult
@@ -415,7 +508,7 @@ final class CoreAudioOutputController: AudioOutputControlling {
         ) == noErr
     }
 
-    private func isSettable(
+    nonisolated private func isSettable(
         objectID: AudioObjectID,
         address: inout AudioObjectPropertyAddress
     ) -> Bool {

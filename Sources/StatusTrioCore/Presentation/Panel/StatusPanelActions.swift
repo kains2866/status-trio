@@ -48,6 +48,11 @@ final class StatusPanelActions {
     private let refreshVolumeListeningModes: () -> Void
     private let stopVolumeListeningModes: () -> Void
     private let selectInputSourceCommand: (String) -> Void
+    private let setOutputLevelCommand: (Double, AudioOutputDevice) -> Void
+    private let finishOutputLevelCommand: (AudioOutputDevice) -> Void
+    private let toggleOutputMuteCommand: (AudioOutputDevice) -> Void
+    private let setInputLevelCommand: (Double, AudioInputDevice, UUID) -> Void
+    private let toggleInputDeviceMuteCommand: (AudioInputDevice) -> Void
 
     private static let summaryBatteryLevelsToken = "bluetooth.summary"
     private static let nearbyBatteryDevicesToken = "bluetooth.summary.nearbyBatteryDevices"
@@ -103,7 +108,12 @@ final class StatusPanelActions {
         releaseBluetoothSummary: @escaping () -> Void = {},
         refreshVolumeListeningModes: @escaping () -> Void = {},
         stopVolumeListeningModes: @escaping () -> Void = {},
-        selectInputSource: @escaping (String) -> Void = { _ in }
+        selectInputSource: @escaping (String) -> Void = { _ in },
+        setOutputLevel: @escaping (Double, AudioOutputDevice) -> Void = { _, _ in },
+        finishOutputLevelAdjustment: @escaping (AudioOutputDevice) -> Void = { _ in },
+        toggleOutputMute: @escaping (AudioOutputDevice) -> Void = { _ in },
+        setInputLevel: @escaping (Double, AudioInputDevice, UUID) -> Void = { _, _, _ in },
+        toggleInputDeviceMute: @escaping (AudioInputDevice) -> Void = { _ in }
     ) {
         self.outputDevices = outputDevices
         self.selectOutputDevice = selectOutput
@@ -150,6 +160,11 @@ final class StatusPanelActions {
         self.refreshVolumeListeningModes = refreshVolumeListeningModes
         self.stopVolumeListeningModes = stopVolumeListeningModes
         self.selectInputSourceCommand = selectInputSource
+        self.setOutputLevelCommand = setOutputLevel
+        self.finishOutputLevelCommand = finishOutputLevelAdjustment
+        self.toggleOutputMuteCommand = toggleOutputMute
+        self.setInputLevelCommand = setInputLevel
+        self.toggleInputDeviceMuteCommand = toggleInputDeviceMute
     }
 
     convenience init(
@@ -249,8 +264,50 @@ final class StatusPanelActions {
             stopVolumeListeningModes: { store.bluetoothListeningModes.stop() },
             selectInputSource: { [weak inputSourceController] id in
                 inputSourceController?.select(id: id)
-            }
+            },
+            setOutputLevel: { scalar, device in store.setVolume(scalar, forOutputDevice: device) },
+            finishOutputLevelAdjustment: { device in store.finishVolumeAdjustment(forOutputDevice: device) },
+            toggleOutputMute: { device in store.toggleMute(forOutputDevice: device) },
+            setInputLevel: { scalar, device, requestID in
+                store.setInputScalar(scalar, forInputDevice: device, requestID: requestID)
+            },
+            toggleInputDeviceMute: { device in store.toggleInputMute(forInputDevice: device) }
         )
+    }
+
+    func setOutputLevel(_ scalar: Double, for key: PanelAudioDeviceID) {
+        guard scalar.isFinite, let device = outputDevice(for: key) else { return }
+        setOutputLevelCommand(min(1, max(0, scalar)), device)
+    }
+
+    func finishOutputLevelAdjustment(for key: PanelAudioDeviceID) {
+        guard let device = outputDevice(for: key) else { return }
+        finishOutputLevelCommand(device)
+    }
+
+    func toggleOutputMute(for key: PanelAudioDeviceID) {
+        guard let device = outputDevice(for: key) else { return }
+        toggleOutputMuteCommand(device)
+    }
+
+    func setInputLevel(_ scalar: Double, for key: PanelAudioDeviceID, requestID: UUID = UUID()) {
+        guard scalar.isFinite, let device = inputDevice(for: key) else { return }
+        setInputLevelCommand(min(1, max(0, scalar)), device, requestID)
+    }
+
+    func toggleInputMute(for key: PanelAudioDeviceID) {
+        guard let device = inputDevice(for: key) else { return }
+        toggleInputDeviceMuteCommand(device)
+    }
+
+    private func outputDevice(for key: PanelAudioDeviceID) -> AudioOutputDevice? {
+        guard key.hasStableUID else { return nil }
+        return outputDevices().first { $0.id == key.id && $0.uid == key.uid }
+    }
+
+    private func inputDevice(for key: PanelAudioDeviceID) -> AudioInputDevice? {
+        guard key.hasStableUID else { return nil }
+        return inputDevices().first { $0.id == key.id && $0.uid == key.uid }
     }
 
     func setVolume(_ scalar: Double) {

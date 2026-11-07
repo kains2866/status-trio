@@ -43,7 +43,7 @@ final class OutputDeviceListeningModeRowTests: XCTestCase {
                 selectedMode: .noiseCancellation
             )
         )
-        XCTAssertEqual(row.controls.count, 4, "selection button + three capsules")
+        XCTAssertEqual(row.controls.count, 5, "selection and mute buttons + three capsules")
     }
 
     /// Fail-closed: a device that supports only one mode has nothing to switch, so
@@ -57,7 +57,7 @@ final class OutputDeviceListeningModeRowTests: XCTestCase {
                 selectedMode: .noiseCancellation
             )
         )
-        XCTAssertEqual(row.controls.count, 1, "only the selection button; a lone mode is not a switch")
+        XCTAssertEqual(row.controls.count, 2, "selection and mute buttons; a lone mode is not a switch")
     }
 
     /// Fail-closed for absence: an output row the controller resolved no control for
@@ -68,7 +68,7 @@ final class OutputDeviceListeningModeRowTests: XCTestCase {
             device: currentAirPodsOutput(),
             listeningMode: nil
         )
-        XCTAssertEqual(row.controls.count, 1, "an ordinary output row is a single button")
+        XCTAssertEqual(row.controls.count, 2, "an ordinary output row has selection and separate mute")
     }
 
     /// The in-flight capsule stays its own focusable button. Whether it marks itself
@@ -88,7 +88,7 @@ final class OutputDeviceListeningModeRowTests: XCTestCase {
                 selectedMode: .noiseCancellation
             ).changing(to: .transparency)
         )
-        XCTAssertEqual(row.controls.count, 4, "the busy capsule is still its own button")
+        XCTAssertEqual(row.controls.count, 5, "the busy capsule is still its own button")
     }
 
     /// A settled (idle) controllable row draws no spinner at all — the busy mark only

@@ -127,7 +127,8 @@ struct CoreAudioInputHardware: AudioInputHardware {
         AudioInputDevice(
           id: id,
           uid: normalized(client.uid(id)),
-          name: normalized(client.name(id))
+          name: normalized(client.name(id)),
+          level: readLevel(id)
         )
       }
       : nil
@@ -176,6 +177,15 @@ struct CoreAudioInputHardware: AudioInputHardware {
   }
 
   func setScalar(_ scalar: Double, on id: AudioDeviceID) throws {
+    try writeScalar(scalar, on: id, expectedUID: nil)
+  }
+
+  func setScalar(_ scalar: Double, on id: AudioDeviceID, expectedUID: String) throws {
+    try validateIdentity(id, expectedUID: expectedUID)
+    try writeScalar(scalar, on: id, expectedUID: expectedUID)
+  }
+
+  private func writeScalar(_ scalar: Double, on id: AudioDeviceID, expectedUID: String?) throws {
     guard scalar.isFinite else { throw AudioInputHardwareError.invalidValue }
     let value = Float32(min(max(scalar, 0), 1))
     let elements = try writableElements(
@@ -183,17 +193,40 @@ struct CoreAudioInputHardware: AudioInputHardware {
       selector: kAudioDevicePropertyVolumeScalar
     )
     for element in elements {
-      try revalidateWritableProperty(id, selector: kAudioDevicePropertyVolumeScalar, element: element)
+      try revalidateWritableProperty(id, selector: kAudioDevicePropertyVolumeScalar, element: element, expectedUID: expectedUID)
       try client.writeScalar(value, on: id, element: element)
     }
   }
 
   func setMuted(_ muted: Bool, on id: AudioDeviceID) throws {
+    try writeMuted(muted, on: id, expectedUID: nil)
+  }
+
+  func setMuted(_ muted: Bool, on id: AudioDeviceID, expectedUID: String) throws {
+    try validateIdentity(id, expectedUID: expectedUID)
+    try writeMuted(muted, on: id, expectedUID: expectedUID)
+  }
+
+  private func writeMuted(_ muted: Bool, on id: AudioDeviceID, expectedUID: String?) throws {
     let elements = try writableElements(for: id, selector: kAudioDevicePropertyMute)
     for element in elements {
-      try revalidateWritableProperty(id, selector: kAudioDevicePropertyMute, element: element)
+      try revalidateWritableProperty(id, selector: kAudioDevicePropertyMute, element: element, expectedUID: expectedUID)
       try client.writeMute(muted, on: id, element: element)
     }
+  }
+
+  private func readLevel(_ id: AudioDeviceID) -> AudioDeviceLevel {
+    let volume = readVolume(id)
+    let mute = readMute(id)
+    let muteState: AudioDeviceMuteState
+    switch mute.state {
+    case .muted: muteState = .muted
+    case .unmuted: muteState = .unmuted
+    case .partial: muteState = .partial
+    case nil: muteState = .unknown
+    }
+    return AudioDeviceLevel(scalar: volume.scalar, canAdjust: volume.scalar != nil && volume.canSet,
+      muteState: muteState, canMute: mute.state != nil && mute.canSet)
   }
 
   private func readVolume(_ id: AudioDeviceID) -> AudioInputVolumeReadback {
@@ -265,7 +298,8 @@ struct CoreAudioInputHardware: AudioInputHardware {
   private func revalidateWritableProperty(
     _ id: AudioDeviceID,
     selector: AudioObjectPropertySelector,
-    element: AudioObjectPropertyElement
+    element: AudioObjectPropertyElement,
+    expectedUID: String?
   ) throws {
     guard isEligibleInput(id) else { throw AudioInputHardwareError.unavailable }
     guard isPropertySettable(id, selector: selector, element: element) else {
@@ -278,9 +312,17 @@ struct CoreAudioInputHardware: AudioInputHardware {
     } else if client.readMute(id, element) == nil {
       throw AudioInputHardwareError.unsupported
     }
-    guard try client.defaultInput() == id else {
-      throw AudioInputHardwareError.unavailable
+    if let expectedUID {
+      try validateIdentity(id, expectedUID: expectedUID)
+    } else {
+      guard try client.defaultInput() == id else { throw AudioInputHardwareError.unavailable }
     }
+  }
+
+  private func validateIdentity(_ id: AudioDeviceID, expectedUID: String) throws {
+    guard !expectedUID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      isEligibleInput(id), normalized(client.uid(id)) == expectedUID
+    else { throw AudioInputHardwareError.unavailable }
   }
 
   private func isPropertySettable(

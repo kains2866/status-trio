@@ -5,6 +5,65 @@ import XCTest
 @testable import StatusTrioCore
 
 final class AudioInputHardwareTests: XCTestCase {
+  func testExplicitUIDWritesNonDefaultDeviceWithoutSelectingItAndLegacyRejects() throws {
+    let client = makeClient(defaultID: 15)
+    let hardware = CoreAudioInputHardware(client: client)
+    XCTAssertThrowsError(try hardware.setScalar(0.7, on: 11))
+    XCTAssertThrowsError(try hardware.setMuted(false, on: 11))
+    XCTAssertTrue(client.writtenScalarIDs.isEmpty)
+    XCTAssertTrue(client.writtenMuteIDs.isEmpty)
+    try hardware.setScalar(0.7, on: 11, expectedUID: "com.example.mic.internal")
+    try hardware.setMuted(false, on: 11, expectedUID: "com.example.mic.internal")
+    XCTAssertEqual(client.writtenScalarIDs, [11])
+    XCTAssertEqual(client.writtenMuteIDs, [11])
+    XCTAssertEqual(client.defaultID, 15)
+    XCTAssertTrue(client.writtenDefaultInputs.isEmpty)
+  }
+
+  func testExplicitUIDWritesRejectReplacementBetweenChannels() throws {
+    for isMute in [false, true] {
+      let client = makeClient(defaultID: 15, overrides: [11: .eligible(
+        name: "Multichannel", uid: "original", channels: 2, controlProperties: [
+          .init(selector: kAudioDevicePropertyVolumeScalar, element: 1): .init(scalar: 0.2, settable: true),
+          .init(selector: kAudioDevicePropertyVolumeScalar, element: 2): .init(scalar: 0.4, settable: true),
+          .init(selector: kAudioDevicePropertyMute, element: 1): .init(mute: false, settable: true),
+          .init(selector: kAudioDevicePropertyMute, element: 2): .init(mute: false, settable: true),
+        ])])
+      let hardware = CoreAudioInputHardware(client: client)
+      client.replaceUIDAfterNextWrite = "replacement"
+      if isMute {
+        XCTAssertThrowsError(try hardware.setMuted(true, on: 11, expectedUID: "original"))
+        XCTAssertEqual(client.writtenMuteElements, [1])
+      } else {
+        XCTAssertThrowsError(try hardware.setScalar(0.8, on: 11, expectedUID: "original"))
+        XCTAssertEqual(client.writtenScalarElements, [1])
+      }
+      XCTAssertEqual(client.defaultID, 15)
+      XCTAssertTrue(client.writtenDefaultInputs.isEmpty)
+    }
+  }
+
+  func testExplicitUIDHardwareRejectsEmptyOrMismatchedIdentity() throws {
+    let client = makeClient(defaultID: 15)
+    let hardware = CoreAudioInputHardware(client: client)
+    for uid in ["", " \n", "replacement"] {
+      XCTAssertThrowsError(try hardware.setScalar(0.8, on: 11, expectedUID: uid))
+      XCTAssertThrowsError(try hardware.setMuted(false, on: 11, expectedUID: uid))
+    }
+    XCTAssertTrue(client.writtenScalarIDs.isEmpty)
+    XCTAssertTrue(client.writtenMuteIDs.isEmpty)
+  }
+
+  func testVisibleInventoryIncludesIndependentDeviceCapabilities() throws {
+    let reading = try CoreAudioInputHardware(client: makeClient()).read(includeDevices: true)
+    let selected = try XCTUnwrap(reading.devices?.first { $0.id == 11 }?.level)
+    XCTAssertEqual(selected.scalar ?? -1, 0.42, accuracy: 0.000_001)
+    XCTAssertTrue(selected.canAdjust)
+    XCTAssertEqual(selected.muteState, .muted)
+    XCTAssertTrue(selected.canMute)
+    XCTAssertNotNil(reading.devices?.first { $0.id == 15 }?.level)
+  }
+
   func testFiltersIneligibleDevicesAndPreservesDuplicateNamesAndMissingUID() throws {
     let hardware = CoreAudioInputHardware(client: makeClient())
 
@@ -687,6 +746,7 @@ private final class FakeAudioInputPropertyClient: AudioInputPropertyClient, @unc
   var failingMuteElement: AudioObjectPropertyElement?
   var failDefaultInputWrite = false
   var switchDefaultAfterNextScalarWrite: AudioDeviceID?
+  var replaceUIDAfterNextWrite: String?
 
   init(
     deviceIDs: [AudioDeviceID],
@@ -757,6 +817,7 @@ private final class FakeAudioInputPropertyClient: AudioInputPropertyClient, @unc
     property.scalar = value
     device.controlProperties[key] = property
     devicesByID[id] = device
+    replaceUIDIfRequested(id)
     if let nextDefault = switchDefaultAfterNextScalarWrite {
       defaultID = nextDefault
       switchDefaultAfterNextScalarWrite = nil
@@ -778,6 +839,13 @@ private final class FakeAudioInputPropertyClient: AudioInputPropertyClient, @unc
     property.mute = value
     device.controlProperties[key] = property
     devicesByID[id] = device
+    replaceUIDIfRequested(id)
+  }
+
+  private func replaceUIDIfRequested(_ id: AudioDeviceID) {
+    guard let replacement = replaceUIDAfterNextWrite else { return }
+    devicesByID[id]?.uid = replacement
+    replaceUIDAfterNextWrite = nil
   }
 
   func writeDefaultInput(_ id: AudioDeviceID) throws {

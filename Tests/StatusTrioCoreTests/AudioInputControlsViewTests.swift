@@ -1,45 +1,56 @@
-import Foundation
+import AppKit
+import SwiftUI
 import XCTest
+@testable import StatusTrioCore
 
+@MainActor
 final class AudioInputControlsViewTests: XCTestCase {
-    func testUnreadableGainKeepsDisabledSliderWithUnavailableVisualAndAccessibilityState() throws {
-        let sourceURL = packageRoot
-            .appendingPathComponent("Sources/StatusTrioCore/UI/AudioInputControlsView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        let controlsStart = try XCTUnwrap(source.range(of: "private var controls: some View {"))
-        let controlsEnd = try XCTUnwrap(source.range(of: "    @ViewBuilder\n    private var muteIcon"))
-        let controls = String(source[controlsStart.lowerBound..<controlsEnd.lowerBound])
-
-        XCTAssertTrue(
-            controls.contains("NativePanelLevelSlider("),
-            "volume control layout must use the shared native panel slider"
-        )
-        XCTAssertTrue(controls.contains("isEnabled: state.canAdjust"))
-        XCTAssertTrue(controls.contains("if state.scalar == nil"))
-        XCTAssertTrue(controls.contains("Text(\"—\")"))
-        XCTAssertTrue(controls.contains("accessibilityValue: sliderAccessibilityValue"))
-        XCTAssertTrue(controls.contains(".audioInputVolumeUnavailable"))
+    func testUnreadableGainKeepsDisabledNativeSliderAndUnavailableDraft() throws {
+        let (host, slider) = try render(level: .unavailable)
+        defer { _ = host }
+        XCTAssertFalse(slider.isEnabled)
+        XCTAssertEqual(slider.doubleValue, 0.5, accuracy: 0.001, "unavailable track is neutral, never fabricated silence")
+        XCTAssertEqual(slider.accessibilityValue() as? String, "—")
     }
 
-    func testSliderAccessibilityValueUsesReadbackAwareDraftPresentation() throws {
-        let sourceURL = packageRoot
-            .appendingPathComponent("Sources/StatusTrioCore/UI/AudioInputControlsView.swift")
-        let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        let valueStart = try XCTUnwrap(source.range(of: "private var sliderAccessibilityValue: String {"))
-        let valueEnd = try XCTUnwrap(source.range(of: "    var body: some View {", range: valueStart.upperBound..<source.endIndex))
-        let accessibilityValue = String(source[valueStart.lowerBound..<valueEnd.lowerBound])
-
-        XCTAssertTrue(accessibilityValue.contains("volumeDraft.accessibilityValue("))
-        XCTAssertTrue(
-            accessibilityValue.contains("systemScalar: state.scalar"),
-            "the drag draft must not bypass current system readback availability"
-        )
+    func testReadableIndependentLevelUsesNativeSliderAndLocalizedPercentage() throws {
+        let (host, slider) = try render(level: .init(scalar: 0.73, canAdjust: true, muteState: .unmuted, canMute: true))
+        defer { _ = host }
+        XCTAssertEqual(host.bounds.height, VolumeDeviceRowMetrics.singleLineHeight, accuracy: 0.1)
+        XCTAssertTrue(slider.isEnabled)
+        XCTAssertEqual(slider.doubleValue, 0.73, accuracy: 0.001)
+        XCTAssertEqual(slider.accessibilityValue() as? String, "73%")
     }
 
-    private var packageRoot: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+    func testMissingOrBlankUIDDisablesPerDeviceNativeSliderWithoutHidingReadableLevel() throws {
+        for uid: String? in [nil, "", "  \n\t"] {
+            for isInput in [false, true] {
+                let (host, slider) = try render(level: .init(scalar: 0.73, canAdjust: true, muteState: .unmuted, canMute: true), uid: uid, isInput: isInput)
+                defer { _ = host }
+                XCTAssertFalse(slider.isEnabled)
+                XCTAssertEqual(slider.doubleValue, 0.73, accuracy: 0.001)
+                XCTAssertEqual(slider.accessibilityValue() as? String, "73%")
+            }
+        }
+    }
+
+    private func render(level: AudioDeviceLevel, uid: String? = "usb", isInput: Bool = true) throws -> (NSView, NSSlider) {
+        let suite = "AudioInputControlsViewTests.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { TestUserDefaults.removeSuite(named: suite) }
+        let localization = Localization(defaults: defaults, preferredLanguages: ["en"])
+        let row = PanelAudioDeviceRow(key: .init(id: 12, uid: uid), name: "USB microphone",
+                                     symbol: .symbol(name: "mic", variableValue: nil, fallback: nil),
+                                     selected: false, enabled: true, accessibilityLabel: "USB microphone", level: level)
+        let host = NSHostingView(rootView: AudioDeviceLevelRow(
+            state: row, isInput: isInput, sliderLabel: "Input level", onSelect: {},
+            onSetLevel: { _, _, _ in }, onToggleMute: { _ in }
+        ).frame(width: 302).environmentObject(localization))
+        host.frame = NSRect(origin: .zero, size: host.fittingSize)
+        host.layoutSubtreeIfNeeded()
+        func sliders(_ view: NSView) -> [NSSlider] {
+            (view as? NSSlider).map { [$0] } ?? view.subviews.flatMap { sliders($0) }
+        }
+        return (host, try XCTUnwrap(sliders(host).first))
     }
 }

@@ -4,6 +4,73 @@ import XCTest
 
 @MainActor
 final class AudioPanelMapperTests: XCTestCase {
+    func testNativeReadbackRevisionIsScopedAwayFromSelectedExternalBackend() {
+        let localization = makeLocalization(.english)
+        let devices = [
+            AudioOutputDevice(id: 1, name: "Current", uid: "current", isCurrent: true),
+            AudioOutputDevice(id: 2, name: "USB", uid: "usb", isCurrent: false)
+        ]
+        for source in [VolumeControlSource.native, .directDDC, .betterDisplay] {
+            let state = AudioPanelMapper.volume(
+                VolumeStatus(scalar: 0.4, isMuted: false, deviceName: "Current", currentDevice: devices[0],
+                             outputDevices: devices, canSetVolume: true, canMute: true, controlSource: source,
+                             nativeDeviceLevelReadbackRevision: 7),
+                controllerAvailable: true, localization: localization)
+            XCTAssertEqual(state.rows.first { $0.selected }?.nativeDeviceLevelReadbackRevision,
+                           source == .native ? 7 : 0)
+            XCTAssertEqual(state.rows.first { !$0.selected }?.nativeDeviceLevelReadbackRevision, 7)
+        }
+    }
+
+    func testMissingOrBlankUIDKeepsReadableLevelsButDisablesTargetedControls() {
+        let localization = makeLocalization(.english)
+        let level = AudioDeviceLevel(scalar: 0.7, canAdjust: true, muteState: .unmuted, canMute: true)
+        for uid: String? in [nil, "", "  \n\t"] {
+            let outputDevices = [
+                AudioOutputDevice(id: 1, name: "Current", uid: uid, isCurrent: true, level: level),
+                AudioOutputDevice(id: 2, name: "Other", uid: uid, isCurrent: false, level: level)
+            ]
+            let output = AudioPanelMapper.volume(
+                VolumeStatus(scalar: 0.4, isMuted: false, deviceName: "Current", currentDevice: outputDevices[0],
+                             outputDevices: outputDevices, canSetVolume: true, canMute: true),
+                controllerAvailable: true, localization: localization)
+            let input = AudioPanelMapper.input(makeInputStatus(devices: [
+                AudioInputDevice(id: 1, uid: uid, name: "Current", level: level),
+                AudioInputDevice(id: 2, uid: uid, name: "Other", level: level)
+            ], defaultDeviceID: 1, scalar: 0.4), localization: localization)
+            for rows in [output.rows, input.rows] {
+                XCTAssertEqual(rows.count, 2)
+                XCTAssertTrue(rows.allSatisfy { $0.enabled }, "route selection remains available")
+                XCTAssertTrue(rows.allSatisfy { $0.level?.scalar != nil })
+                XCTAssertTrue(rows.allSatisfy { $0.level?.canAdjust == false && $0.level?.canMute == false })
+            }
+            XCTAssertTrue(output.canAdjust, "legacy current-route fallback stays supported")
+            XCTAssertTrue(output.canMute)
+            XCTAssertTrue(input.canAdjust)
+            XCTAssertTrue(input.canMute)
+        }
+    }
+
+    func testInputRowsKeepIndependentLevelsAndScopeAcknowledgementsByUID() {
+        let request = UUID()
+        let level = AudioDeviceLevel(scalar: 0.8, canAdjust: true, muteState: .muted, canMute: true)
+        var status = makeInputStatus(devices: [
+            AudioInputDevice(id: 1, uid: "current", name: "Built-in"),
+            AudioInputDevice(id: 2, uid: "other", name: "USB", level: level)
+        ], defaultDeviceID: 1, scalar: 0.4)
+        status.completedDeviceScalarRequestID = request
+        status.completedDeviceScalarDeviceID = 2
+        status.completedDeviceScalarDeviceUID = "other"
+        let state = AudioPanelMapper.input(status, localization: makeLocalization(.english))
+        XCTAssertEqual(state.rows.first { $0.key.id == 1 }?.level?.scalar, 0.4)
+        XCTAssertEqual(state.rows.first { $0.key.id == 2 }?.level, level)
+        XCTAssertEqual(state.rows.first { $0.key.id == 2 }?.completedLevelRequestID, request)
+        XCTAssertNil(state.rows.first { $0.key.id == 1 }?.completedLevelRequestID)
+        status.completedDeviceScalarDeviceUID = "replaced"
+        XCTAssertNil(AudioPanelMapper.input(status, localization: makeLocalization(.english))
+            .rows.first { $0.key.id == 2 }?.completedLevelRequestID)
+    }
+
     func testInputRowsKeepStableIdentityAndDisambiguateDuplicateNames() {
         let localization = makeLocalization(.english)
         let first = AudioInputDevice(id: AudioDeviceID(1), uid: "first", name: "Studio Mic")
@@ -296,7 +363,7 @@ final class AudioPanelMapperTests: XCTestCase {
         )
 
         XCTAssertEqual(single.rows.map(\.key.uid), ["display"])
-        XCTAssertFalse(single.showsDeviceList, "one remaining row is not a choice")
+        XCTAssertTrue(single.showsDeviceList, "one device retains its named level row")
     }
 
     func testHiddenActiveOutputKeepsTheListEvenWhenItIsTheOnlyRow() {

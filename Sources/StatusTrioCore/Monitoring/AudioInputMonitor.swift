@@ -11,6 +11,8 @@ protocol AudioInputMonitoring: AnyObject {
   func select(_ id: AudioDeviceID)
   func setScalar(_ value: Double, requestID: UUID)
   func toggleMute()
+  func setScalar(_ value: Double, onDeviceID: AudioDeviceID, expectedUID: String?, requestID: UUID)
+  func toggleMute(onDeviceID: AudioDeviceID, expectedUID: String?)
   func stop()
 }
 
@@ -105,12 +107,14 @@ private enum AudioInputMonitorCommand: Sendable {
   case select(AudioDeviceID)
   case scalar(Double)
   case mute(Bool)
+  case deviceScalar(Double, String, UUID)
+  case deviceMute(String)
 
   var error: AudioInputError {
     switch self {
     case .select: .switchFailed
-    case .scalar: .volumeFailed
-    case .mute: .muteFailed
+    case .scalar, .deviceScalar: .volumeFailed
+    case .mute, .deviceMute: .muteFailed
     }
   }
 }
@@ -209,6 +213,7 @@ final class AudioInputMonitor: AudioInputMonitoring {
     if !enabled {
       sessionGate?.invalidate()
       sessionGate = nil
+      status.completedDeviceScalarRequests = [:]
       stopUsagePolling()
     }
     sessionGeneration &+= 1
@@ -377,11 +382,61 @@ final class AudioInputMonitor: AudioInputMonitoring {
     enqueueOrStart(QueuedCommand(command: .mute(target), deviceID: deviceID))
   }
 
+  func setScalar(_ value: Double, onDeviceID id: AudioDeviceID, expectedUID: String?, requestID: UUID) {
+    beginUserAction()
+    guard canAcceptAction else { return }
+    guard value.isFinite, let expectedUID,
+      !expectedUID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      let device = status.devices.first(where: { $0.id == id && $0.uid == expectedUID }),
+      device.level?.canAdjust == true
+    else {
+      acknowledgeDeviceScalar(requestID, deviceID: id, uid: expectedUID)
+      showError(.volumeFailed)
+      return
+    }
+    // Keep a bounded final value per target while the serial worker is occupied.
+    queuedCommands.removeAll { queued in
+      if case .deviceScalar = queued.command { return queued.deviceID == id }
+      return false
+    }
+    enqueueOrStart(QueuedCommand(command: .deviceScalar(min(max(value, 0), 1), expectedUID, requestID), deviceID: id))
+  }
+
+  func toggleMute(onDeviceID id: AudioDeviceID, expectedUID: String?) {
+    beginUserAction()
+    guard canAcceptAction else { return }
+    guard let expectedUID, !expectedUID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      let device = status.devices.first(where: { $0.id == id && $0.uid == expectedUID }),
+      device.level?.canMute == true, device.level?.muteState != .unknown
+    else { showError(.muteFailed); return }
+    enqueueOrStart(QueuedCommand(command: .deviceMute(expectedUID), deviceID: id))
+  }
+
+  private func finishQueuedDeviceScalars() {
+    for queued in queuedCommands {
+      if case let .deviceScalar(_, uid, requestID) = queued.command {
+        acknowledgeDeviceScalar(requestID, deviceID: queued.deviceID, uid: uid)
+      }
+    }
+  }
+
+  private func acknowledgeDeviceScalar(_ requestID: UUID, deviceID: AudioDeviceID, uid: String?) {
+    status.completedDeviceScalarRequestID = requestID
+    status.completedDeviceScalarDeviceID = deviceID
+    status.completedDeviceScalarDeviceUID = uid
+    if status.devices.contains(where: { $0.id == deviceID && $0.uid == uid }) {
+      status.completedDeviceScalarRequests = status.completedDeviceScalarRequests.merging([
+        deviceID: AudioInputDeviceScalarCompletion(uid: uid, requestID: requestID)
+      ]) { _, latest in latest }
+    }
+  }
+
   func stop() {
     guard !isStopped else { return }
     sessionGate?.invalidate()
     sessionGate = nil
     stopUsagePolling()
+    status.completedDeviceScalarRequests = [:]
     isStopped = true
     isEnabled = false
     isVisible = false
@@ -534,6 +589,7 @@ final class AudioInputMonitor: AudioInputMonitoring {
     status.isDefaultInputInUse = nil
     status.isBusy = false
 
+    finishQueuedDeviceScalars()
     queuedCommands.removeAll()
     clearPendingScalar()
     finishLatestScalarRequest()
@@ -602,6 +658,10 @@ final class AudioInputMonitor: AudioInputMonitoring {
         showError(.switchFailed)
         return
       }
+    } else if case .deviceScalar = command {
+      // Live identity and capability are validated on the serial HAL worker.
+    } else if case .deviceMute = command {
+      // Mute is resolved from live state rather than a potentially stale row.
     } else if status.defaultDeviceID != deviceID {
       showError(command.error)
       return
@@ -648,8 +708,12 @@ final class AudioInputMonitor: AudioInputMonitoring {
     guard var active = activeCommand, active.id == commandID, !active.timedOut else { return }
     active.timedOut = true
     activeCommand = active
+    if case let .deviceScalar(_, uid, requestID) = active.command {
+      acknowledgeDeviceScalar(requestID, deviceID: active.deviceID, uid: uid)
+    }
     clearPendingScalar()
     finishLatestScalarRequest()
+    finishQueuedDeviceScalars()
     queuedCommands.removeAll()
     showError(.timedOut)
   }
@@ -666,6 +730,28 @@ final class AudioInputMonitor: AudioInputMonitoring {
       observationDegraded = true
     } else if result.reading != nil {
       observationDegraded = false
+    }
+
+    switch active.command {
+    case let .deviceScalar(target, uid, requestID):
+      let device = result.reading?.devices?.first { $0.id == active.deviceID && $0.uid == uid }
+      let succeeded = !active.timedOut && result.operationError == nil && result.readError == nil
+        && device?.level?.scalar.map { abs($0 - target) <= 0.01 } == true
+      applyTargetedReadback(result.reading, active: active, uid: uid)
+      acknowledgeDeviceScalar(requestID, deviceID: active.deviceID, uid: uid)
+      if let devices = result.reading?.devices { pruneDeviceScalarCompletions(devices) }
+      status.isBusy = false
+      if succeeded { publish() } else { showError(.volumeFailed) }
+      startNextWorkIfPossible()
+      return
+    case let .deviceMute(uid):
+      applyTargetedReadback(result.reading, active: active, uid: uid)
+      status.isBusy = false
+      if result.operationError == nil && result.readError == nil { publish() }
+      else { showError(.muteFailed) }
+      startNextWorkIfPossible()
+      return
+    default: break
     }
 
     let isCurrent = active.readGeneration == readGeneration
@@ -728,6 +814,23 @@ final class AudioInputMonitor: AudioInputMonitoring {
     startNextWorkIfPossible()
   }
 
+  private func applyTargetedReadback(_ reading: AudioInputReading?, active: ActiveCommand, uid: String?) {
+    guard let reading else { return }
+    if let devices = reading.devices { pruneDeviceScalarCompletions(devices) }
+    if let device = reading.devices?.first(where: { $0.id == active.deviceID && $0.uid == uid }) {
+      status.devices = status.devices.map { $0.id == device.id && $0.uid == device.uid ? device : $0 }
+    }
+    // A non-current device response must never overwrite the selected microphone snapshot.
+    if active.deviceID == status.defaultDeviceID, reading.defaultDeviceID == active.deviceID,
+      active.readGeneration == readGeneration
+    {
+      status.scalar = reading.scalar
+      status.canSetVolume = reading.canSetVolume
+      status.muteState = reading.muteState
+      status.canSetMute = reading.canSetMute
+    }
+  }
+
   private func commandFailure(
     _ command: AudioInputMonitorCommand,
     expectedDeviceID: AudioDeviceID,
@@ -740,6 +843,8 @@ final class AudioInputMonitor: AudioInputMonitoring {
     switch command {
     case let .select(id):
       return reading.defaultDeviceID == id ? nil : .switchFailed
+    case .deviceScalar, .deviceMute:
+      return nil
     case let .scalar(target):
       guard reading.defaultDeviceID == expectedDeviceID,
         reading.canSetVolume,
@@ -757,9 +862,16 @@ final class AudioInputMonitor: AudioInputMonitoring {
     }
   }
 
+  private func pruneDeviceScalarCompletions(_ devices: [AudioInputDevice]) {
+    status.completedDeviceScalarRequests = status.completedDeviceScalarRequests.filter { id, completion in
+      devices.contains { $0.id == id && $0.uid == completion.uid }
+    }
+  }
+
   private func apply(_ reading: AudioInputReading) {
     if let devices = reading.devices {
       status.devices = devices
+      pruneDeviceScalarCompletions(devices)
     }
     status.defaultDeviceID = reading.defaultDeviceID
     status.deviceName = reading.deviceName
@@ -931,8 +1043,15 @@ final class AudioInputMonitor: AudioInputMonitoring {
 
   private func publish() {
     guard !isStopped else { return }
-    if let activeCommand, case .scalar = activeCommand.command {
-      status.isAdjustingScalar = !activeCommand.timedOut && queuedCommands.isEmpty
+    if let activeCommand {
+      switch activeCommand.command {
+      case .scalar:
+        status.isAdjustingScalar = !activeCommand.timedOut && queuedCommands.isEmpty
+      case .deviceScalar:
+        status.isAdjustingScalar = !activeCommand.timedOut
+      default:
+        status.isAdjustingScalar = false
+      }
     } else {
       status.isAdjustingScalar = false
     }
@@ -1053,6 +1172,7 @@ private final class AudioInputWorker: @unchecked Sendable {
     queue.async {
       guard sessionGate.isActive else { return }
       var operationError: AudioInputHardwareError?
+      var targetMute: Bool?
       do {
         switch command {
         case let .select(id):
@@ -1061,6 +1181,22 @@ private final class AudioInputWorker: @unchecked Sendable {
           try self.hardware.setScalar(value, on: deviceID)
         case let .mute(value):
           try self.hardware.setMuted(value, on: deviceID)
+        case let .deviceScalar(value, uid, _):
+          let live = try self.hardware.read(includeDevices: true)
+          guard sessionGate.isActive, !uid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            let device = live.devices?.first(where: { $0.id == deviceID && $0.uid == uid }),
+            device.level?.canAdjust == true
+          else { throw AudioInputHardwareError.unavailable }
+          try self.hardware.setScalar(value, on: deviceID, expectedUID: uid)
+        case let .deviceMute(uid):
+          let live = try self.hardware.read(includeDevices: true)
+          guard sessionGate.isActive, !uid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            let device = live.devices?.first(where: { $0.id == deviceID && $0.uid == uid }),
+            let level = device.level, level.canMute, level.muteState != .unknown
+          else { throw AudioInputHardwareError.unavailable }
+          let muted = level.muteState != .muted
+          targetMute = muted
+          try self.hardware.setMuted(muted, on: deviceID, expectedUID: uid)
         }
       } catch {
         operationError = Self.hardwareError(error)
@@ -1073,11 +1209,22 @@ private final class AudioInputWorker: @unchecked Sendable {
       var readError: AudioInputHardwareError?
       var observationError: AudioInputHardwareError?
       do {
-        reading = try self.hardware.read(includeDevices: false)
+        let includeDevices: Bool
+        switch command {
+        case .deviceScalar, .deviceMute: includeDevices = true
+        default: includeDevices = false
+        }
+        reading = try self.hardware.read(includeDevices: includeDevices)
         guard sessionGate.isActive else { return }
       } catch {
         guard sessionGate.isActive else { return }
         readError = Self.hardwareError(error)
+      }
+      if case let .deviceMute(uid) = command, let targetMute,
+        reading?.devices?.first(where: { $0.id == deviceID && $0.uid == uid })?.level?.muteState
+          != (targetMute ? .muted : .unmuted)
+      {
+        operationError = .unavailable
       }
       if readError == nil, let reading {
         do {

@@ -133,10 +133,10 @@ final class SettingsStore: ObservableObject {
     static let refreshIntervalDefaultsKey = "statusRefreshIntervalSeconds"
 
     static let outputDeviceLimitRange: ClosedRange<Int> = 1...20
-    static let defaultMaxVisibleOutputDevices = 5
+    static let defaultMaxVisibleOutputDevices = 3
     static let maxVisibleOutputDevicesDefaultsKey = "maxVisibleOutputDevices"
     static let inputDeviceLimitRange: ClosedRange<Int> = 1...20
-    static let defaultMaxVisibleInputDevices = 5
+    static let defaultMaxVisibleInputDevices = 3
     static let maxVisibleInputDevicesDefaultsKey = "maxVisibleInputDevices"
     static let alwaysShowsAllInputDevicesDefaultsKey = "alwaysShowsAllInputDevices"
     static let defaultMaxVisibleBluetoothDevices = 5

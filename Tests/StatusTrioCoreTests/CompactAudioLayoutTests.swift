@@ -15,7 +15,7 @@ final class CompactAudioLayoutTests: XCTestCase {
     func testLongDeviceNamesAndLocalizedControlsFitPopover() throws {
         for language in [AppLanguage.english, .simplifiedChinese, .german, .arabic] {
             let size = try render(alwaysShowAll: false, language: language, dark: true)
-            XCTAssertGreaterThan(size.size.height, 200)
+            XCTAssertGreaterThan(size.size.height, 140)
             XCTAssertLessThan(size.size.height, 450)
         }
     }

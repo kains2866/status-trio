@@ -15,7 +15,7 @@ struct AudioInputListPreferences: Equatable, Sendable {
     let hiddenUIDs: Set<String>
     let visibleLimit: Int?
 
-    init(order: [String] = [], hiddenUIDs: Set<String> = [], visibleLimit: Int? = 5) {
+    init(order: [String] = [], hiddenUIDs: Set<String> = [], visibleLimit: Int? = 3) {
         self.order = order
         self.hiddenUIDs = hiddenUIDs
         self.visibleLimit = visibleLimit.map { max(0, $0) }

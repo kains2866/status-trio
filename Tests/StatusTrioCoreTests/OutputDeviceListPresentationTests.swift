@@ -3,6 +3,16 @@ import XCTest
 @testable import StatusTrioCore
 
 final class OutputDeviceListPresentationTests: XCTestCase {
+    func testPanelRowsRetainSelectedBeyondCutoffAndOverflowIsDisjoint() {
+        let rows = (1...5).map { id in
+            PanelAudioDeviceRow(key: .init(id: UInt32(id), uid: "\(id)"), name: "Device", symbol: .symbol(name: "speaker", variableValue: nil, fallback: nil), selected: id == 5, enabled: true, accessibilityLabel: "Device")
+        }
+        let visible = OutputDeviceListPresentation.visibleDevices(from: rows, limit: 3, isExpanded: false)
+        XCTAssertEqual(visible.map(\.key.id), [1, 2, 5])
+        XCTAssertEqual(OutputDeviceListPresentation.overflowRows(from: rows, limit: 3).map(\.key.id), [3, 4])
+        XCTAssertEqual(OutputDeviceListPresentation.visibleDevices(from: rows, limit: 0, isExpanded: false).map(\.key.id), [5])
+    }
+
     func testCollapsedListLimitsVisibleDevices() {
         let devices = makeDevices(count: 6)
 

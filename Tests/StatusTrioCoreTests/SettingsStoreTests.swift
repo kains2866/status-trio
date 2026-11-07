@@ -941,9 +941,9 @@ final class SettingsStoreTests: XCTestCase {
         let store = SettingsStore(defaults: makeSuite().defaults)
 
         XCTAssertEqual(SettingsStore.outputDeviceLimitRange, 1...20)
-        XCTAssertEqual(store.maxVisibleOutputDevices, 5)
+        XCTAssertEqual(store.maxVisibleOutputDevices, 3)
         XCTAssertFalse(store.alwaysShowsAllOutputDevices)
-        XCTAssertEqual(store.visibleOutputDeviceLimit, 5)
+        XCTAssertEqual(store.visibleOutputDeviceLimit, 3)
     }
 
     func testOutputDeviceDisplaySettingsPersist() {
@@ -974,10 +974,10 @@ final class SettingsStoreTests: XCTestCase {
         let store = SettingsStore(defaults: makeSuite().defaults)
 
         XCTAssertEqual(SettingsStore.inputDeviceLimitRange, 1...20)
-        XCTAssertEqual(store.maxVisibleInputDevices, 5)
+        XCTAssertEqual(store.maxVisibleInputDevices, 3)
         XCTAssertFalse(store.alwaysShowsAllInputDevices)
-        XCTAssertEqual(store.visibleInputDeviceLimit, 5)
-        XCTAssertEqual(store.inputDeviceListPreferences.visibleLimit, 5)
+        XCTAssertEqual(store.visibleInputDeviceLimit, 3)
+        XCTAssertEqual(store.inputDeviceListPreferences.visibleLimit, 3)
     }
 
     func testInputDeviceDisplaySettingsPersistIndependentlyOfOutput() {
@@ -993,7 +993,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(second.alwaysShowsAllInputDevices)
         XCTAssertNil(second.visibleInputDeviceLimit)
         XCTAssertNil(second.inputDeviceListPreferences.visibleLimit)
-        XCTAssertEqual(second.maxVisibleOutputDevices, 5)
+        XCTAssertEqual(second.maxVisibleOutputDevices, 3)
         XCTAssertFalse(second.alwaysShowsAllOutputDevices)
     }
 

@@ -70,6 +70,8 @@ protocol AudioInputHardware: Sendable {
   func selectDefault(_ id: AudioDeviceID) throws
   func setScalar(_ scalar: Double, on id: AudioDeviceID) throws
   func setMuted(_ muted: Bool, on id: AudioDeviceID) throws
+  func setScalar(_ scalar: Double, on id: AudioDeviceID, expectedUID: String) throws
+  func setMuted(_ muted: Bool, on id: AudioDeviceID, expectedUID: String) throws
   func observe(_ notify: @escaping @Sendable (AudioInputEvent) -> Void) throws
     -> any AudioInputObservation
 }

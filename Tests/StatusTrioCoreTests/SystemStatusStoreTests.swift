@@ -6,6 +6,87 @@ import XCTest
 
 @MainActor
 final class SystemStatusStoreTests: XCTestCase {
+    func testExplicitOutputControlsDoNotWriteOrOptimisticallyReplaceTheCurrentRoute() async {
+        let volume = FakeVolumeMonitor()
+        let store = SystemStatusStore(batteryMonitor: FakeBatteryMonitor(), wifiMonitor: FakeWiFiMonitor(),
+                                      volumeMonitor: volume, refreshInterval: .seconds(60))
+        let current = AudioOutputDevice(id: 1, name: "Current", uid: "a", isCurrent: true, volume: 0.2)
+        let other = AudioOutputDevice(id: 2, name: "Other", uid: "b", isCurrent: false, volume: 0.7,
+            level: AudioDeviceLevel(scalar: 0.7, canAdjust: true, muteState: .muted, canMute: true))
+        store.start()
+        defer { store.stop() }
+        volume.send(VolumeStatus(scalar: 0.2, isMuted: false, deviceName: "Current",
+                                currentDevice: current, outputDevices: [current, other]))
+        await waitUntil { store.liveVolume.outputDevices.count == 2 }
+        store.setVolume(0.8, forOutputDevice: other)
+        store.toggleMute(forOutputDevice: other)
+        store.finishVolumeAdjustment(forOutputDevice: other)
+        XCTAssertEqual(volume.deviceVolumeWrites.map { $0.0 }, [0.8])
+        XCTAssertEqual(volume.deviceVolumeWrites.map { $0.1 }, [AudioDeviceID(2)])
+        XCTAssertEqual(volume.deviceVolumeWrites.map { $0.2 }, ["b"])
+        XCTAssertEqual(volume.deviceMuteWrites.map { $0.0 }, [AudioDeviceID(2)])
+        XCTAssertEqual(volume.deviceFlushes.map { $0.0 }, [AudioDeviceID(2)])
+        XCTAssertTrue(volume.setVolumeValues.isEmpty)
+        XCTAssertEqual(volume.toggleMuteCount, 0)
+        XCTAssertTrue(volume.selectedOutputDeviceIDs.isEmpty)
+        XCTAssertEqual(store.liveVolume.scalar, 0.2)
+        XCTAssertFalse(store.liveVolume.isMuted)
+        let stale = AudioOutputDevice(id: 2, name: "Stale", uid: "old", isCurrent: false, volume: 0.7)
+        store.setVolume(0.4, forOutputDevice: stale)
+        store.toggleMute(forOutputDevice: stale)
+        store.finishVolumeAdjustment(forOutputDevice: stale)
+        for uid: String? in [nil, "", " \n\t"] {
+            let unidentified = AudioOutputDevice(id: 2, name: "Stale", uid: uid, isCurrent: false)
+            store.setVolume(0.4, forOutputDevice: unidentified)
+            store.toggleMute(forOutputDevice: unidentified)
+            store.finishVolumeAdjustment(forOutputDevice: unidentified)
+        }
+        XCTAssertEqual(volume.deviceVolumeWrites.count, 1)
+        XCTAssertEqual(volume.deviceMuteWrites.count, 1)
+        XCTAssertEqual(volume.deviceFlushes.count, 1)
+    }
+
+    func testExplicitInputControlsKeepCurrentScalarAndRequestIdentity() async {
+        let input = FakeAudioInputMonitor()
+        let store = makeStore(battery: FakeBatteryMonitor(), wifi: FakeWiFiMonitor(),
+                              volume: FakeVolumeMonitor(), inputMonitor: input)
+        let suite = makeSuite()
+        defer { suite.defaults.removeTestSuite(named: suite.name) }
+        let settings = SettingsStore(defaults: suite.defaults)
+        store.bindInputSettings(settings)
+        store.start()
+        settings.setPopupSection(.audioInput, enabled: true)
+        defer { store.stop() }
+        let other = AudioInputDevice(id: 4, uid: "mic-b", name: "Other",
+            level: AudioDeviceLevel(scalar: 0.6, canAdjust: true, muteState: .unmuted, canMute: true))
+        input.send(AudioInputStatus(devices: [other], defaultDeviceID: 3, deviceName: "Current",
+                                   scalar: 0.2, canSetVolume: true, muteState: .unmuted,
+                                   canSetMute: true, isRefreshing: false, isBusy: false, error: nil))
+        await waitUntil { store.liveInput.devices.count == 1 }
+        let request = UUID()
+        store.setInputScalar(0.8, forInputDevice: other, requestID: request)
+        store.toggleInputMute(forInputDevice: other)
+        XCTAssertEqual(input.deviceScalarWrites.map { $0.0 }, [0.8])
+        XCTAssertEqual(input.deviceScalarWrites.map { $0.1 }, [AudioDeviceID(4)])
+        XCTAssertEqual(input.deviceScalarWrites.map { $0.2 }, ["mic-b"])
+        XCTAssertEqual(input.deviceScalarWrites.map { $0.3 }, [request])
+        XCTAssertEqual(input.deviceMuteWrites.map { $0.0 }, [AudioDeviceID(4)])
+        XCTAssertTrue(input.scalarValues.isEmpty)
+        XCTAssertEqual(input.toggleMuteCount, 0)
+        XCTAssertTrue(input.selectedDeviceIDs.isEmpty)
+        XCTAssertEqual(store.liveInput.scalar, 0.2)
+        let stale = AudioInputDevice(id: 4, uid: "old", name: "Stale")
+        store.setInputScalar(0.9, forInputDevice: stale, requestID: UUID())
+        store.toggleInputMute(forInputDevice: stale)
+        for uid: String? in [nil, "", " \n\t"] {
+            let unidentified = AudioInputDevice(id: 4, uid: uid, name: "Stale")
+            store.setInputScalar(0.9, forInputDevice: unidentified, requestID: UUID())
+            store.toggleInputMute(forInputDevice: unidentified)
+        }
+        XCTAssertEqual(input.deviceScalarWrites.count, 1)
+        XCTAssertEqual(input.deviceMuteWrites.count, 1)
+    }
+
     func testStoreMergesIndependentMonitorUpdates() async {
         let battery = FakeBatteryMonitor()
         let wifi = FakeWiFiMonitor()
@@ -2910,6 +2991,8 @@ private final class FakeAudioInputMonitor: AudioInputMonitoring {
     private(set) var selectedDeviceIDs: [AudioDeviceID] = []
     private(set) var scalarValues: [Double] = []
     private(set) var scalarRequestIDs: [UUID] = []
+    private(set) var deviceScalarWrites: [(Double, AudioDeviceID, String?, UUID)] = []
+    private(set) var deviceMuteWrites: [(AudioDeviceID, String?)] = []
     private(set) var toggleMuteCount = 0
 
     init() {
@@ -2925,6 +3008,12 @@ private final class FakeAudioInputMonitor: AudioInputMonitoring {
         scalarValues.append(value)
         scalarRequestIDs.append(requestID)
     }
+    func setScalar(_ value: Double, onDeviceID deviceID: AudioDeviceID, expectedUID: String?, requestID: UUID) {
+        deviceScalarWrites.append((value, deviceID, expectedUID, requestID))
+    }
+    func toggleMute(onDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        deviceMuteWrites.append((deviceID, expectedUID))
+    }
     func toggleMute() { toggleMuteCount += 1 }
     func stop() { stopCount += 1 }
     func send(_ value: AudioInputStatus) { continuation.yield(value) }
@@ -2938,6 +3027,9 @@ private final class FakeVolumeMonitor: VolumeMonitoring, VolumeControlling {
     private(set) var refreshCount = 0
     private(set) var recoverCount = 0
     private(set) var setVolumeValues: [Double] = []
+    private(set) var deviceVolumeWrites: [(Double, AudioDeviceID, String?)] = []
+    private(set) var deviceMuteWrites: [(AudioDeviceID, String?)] = []
+    private(set) var deviceFlushes: [(AudioDeviceID, String?)] = []
     private(set) var toggleMuteCount = 0
     private(set) var selectedOutputDeviceIDs: [AudioDeviceID] = []
     private(set) var detailsVisibility: [Bool] = []
@@ -2961,6 +3053,15 @@ private final class FakeVolumeMonitor: VolumeMonitoring, VolumeControlling {
     }
     func setVolume(_ scalar: Double) {
         setVolumeValues.append(scalar)
+    }
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        deviceVolumeWrites.append((scalar, deviceID, expectedUID))
+    }
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        deviceMuteWrites.append((deviceID, expectedUID))
+    }
+    func flushPendingVolume(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        deviceFlushes.append((deviceID, expectedUID))
     }
     func toggleMute() {
         toggleMuteCount += 1

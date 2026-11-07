@@ -58,54 +58,18 @@ struct VolumeControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 10) {
-                Button(action: {
-                    VolumePanelActionGate.toggleMute(in: state) {
-                        actions.toggleMute()
-                    }
-                }) {
-                    PanelActionGlyph(
-                        systemName: state.muteSymbol,
-                        font: .system(size: 15, weight: .medium)
-                    )
-                        .frame(width: PanelSummaryActionMetrics.leadingGlyphSlot)
-                        .foregroundStyle(state.muted ? Color.red : Color.secondary)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(!state.canMute)
-                .help(state.muteHelp)
-                .accessibilityLabel(state.muteHelp)
-
-                NativePanelLevelSlider(
-                    value: volumeBinding,
-                    isEnabled: state.canAdjust,
-                    accessibilityLabel: state.sliderLabel,
-                    accessibilityValue: percentageText,
-                    onEditingChanged: { isEditing in
-                        handleVolumeEditing(isEditing)
-                    }
-                )
-                    .background(VolumeControlScrollTarget(targets: scrollTargets))
-
-                Text(percentageText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 34, alignment: .trailing)
-                    .accessibilityHidden(true)
-
-                Button(action: onOpenSoundSettings) {
-                    PanelActionGlyph(systemName: "gearshape")
-                        .foregroundStyle(.secondary)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(localization.string(.volumeActionOpenSettings))
-                .accessibilityLabel(localization.string(.volumeActionOpenSettings))
+            if !state.showsDeviceList {
+                legacyControls
             }
-
             if state.showsDeviceList {
-                Divider().padding(.top, 2)
+                HStack {
+                    Text(localization.string(.volumeAccessibilityLabel)).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(action: onOpenSoundSettings) { PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary) }
+                        .buttonStyle(.plain)
+                        .help(localization.string(.volumeActionOpenSettings))
+                        .accessibilityLabel(localization.string(.volumeActionOpenSettings))
+                }
                 OutputDeviceList(
                     rows: state.rows,
                     previewRows: state.previewRows,
@@ -115,13 +79,65 @@ struct VolumeControlsView: View {
                     previewLanguageCode: state.previewLanguageCode,
                     onSelect: { actions.selectOutput($0) },
                     onSelectListeningMode: { actions.setListeningMode(address: $0, mode: $1) },
-                    skeleton: state.deviceListPlaceholder
+                    skeleton: state.deviceListPlaceholder,
+                    scrollTargets: scrollTargets,
+                    onSetLevel: { scalar, key, _ in actions.setOutputLevel(scalar, for: key) },
+                    onFinishLevel: { actions.finishOutputLevelAdjustment(for: $0) },
+                    onToggleMute: { actions.toggleOutputMute(for: $0) }
                 )
             }
         }
         .onAppear { synchronizeVolume(synchronizationSnapshot) }
         .onChange(of: synchronizationSnapshot) { snapshot in
             synchronizeVolume(snapshot)
+        }
+    }
+
+    private var legacyControls: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Button(action: {
+                VolumePanelActionGate.toggleMute(in: state) {
+                    actions.toggleMute()
+                }
+            }) {
+                PanelActionGlyph(
+                    systemName: state.muteSymbol,
+                    font: .system(size: 15, weight: .medium)
+                )
+                    .frame(width: PanelSummaryActionMetrics.leadingGlyphSlot)
+                    .foregroundStyle(state.muted ? Color.red : Color.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!state.canMute)
+            .help(state.muteHelp)
+            .accessibilityLabel(state.muteHelp)
+
+            NativePanelLevelSlider(
+                value: volumeBinding,
+                isEnabled: state.canAdjust,
+                accessibilityLabel: state.sliderLabel,
+                accessibilityValue: percentageText,
+                onEditingChanged: { isEditing in
+                    handleVolumeEditing(isEditing)
+                }
+            )
+                .background(VolumeControlScrollTarget(targets: scrollTargets))
+
+            Text(percentageText)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 34, alignment: .trailing)
+                .accessibilityHidden(true)
+
+            Button(action: onOpenSoundSettings) {
+                PanelActionGlyph(systemName: "gearshape")
+                    .foregroundStyle(.secondary)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(localization.string(.volumeActionOpenSettings))
+            .accessibilityLabel(localization.string(.volumeActionOpenSettings))
         }
     }
 
