@@ -99,7 +99,7 @@ final class CascadingSubmenuTests: XCTestCase {
         XCTAssertEqual(closes, 1)
     }
 
-    func testEnvironmentDefaultsDoNotCreateThirdLevelOrRequireCoordinator() {
+    func testEnvironmentDefaultsDoNotRequireCoordinator() {
         let environment = EnvironmentValues()
         XCTAssertNil(environment.cascadingSubmenuCoordinator)
         XCTAssertFalse(environment.isCascadingSubmenu)
@@ -215,6 +215,8 @@ final class CascadingSubmenuNativeTests: VisibleUITestCase {
         let observation = NativeSubmenuInteractionObservation(label: "submenu-hover")
         let state = PresentationState()
         let coordinator = CascadingSubmenuCoordinator()
+        // Synthetic enter/exit events must not depend on the user's pointer.
+        coordinator.pointerLocation = { NSPoint(x: -10_000, y: -10_000) }
         let parent = AnchoredStatusPanel()
         let anchorWindow = NSWindow(contentRect: NSRect(x: 300, y: 300, width: 330, height: 50),
                                     styleMask: .borderless, backing: .buffered, defer: false)

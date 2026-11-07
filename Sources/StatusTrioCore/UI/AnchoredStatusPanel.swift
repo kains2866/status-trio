@@ -74,9 +74,22 @@ final class AnchoredStatusPanel: NSPanel {
     private var anchorRectInView: NSRect = .zero
     private var preferredEdge: NSRectEdge = .minY
     private var alignsTop = false
-    /// The root retains its coordinator in SwiftUI; the panel only links lifecycle.
+    /// Each level retains its own coordinator in SwiftUI; the panel links lifecycle.
     weak var submenuCoordinator: CascadingSubmenuCoordinator?
     var statusItemFrameForDismissal: (() -> NSRect?)?
+    var onSubmenuHoverEntered: (() -> Void)?
+    var onSubmenuHoverExited: (() -> Void)?
+
+    var rootPanel: AnchoredStatusPanel {
+        (parent as? AnchoredStatusPanel)?.rootPanel ?? self
+    }
+
+    /// Continue away from the ancestor rather than placing a third panel on
+    /// top of it when the first submenu had to open to the left.
+    var preferredSubmenuEdge: NSRectEdge {
+        guard let parent else { return .maxX }
+        return frame.midX < parent.frame.midX ? .minX : .maxX
+    }
 
     func shouldDismissForOutsideClick(at point: NSPoint) -> Bool {
         PopoverDismissalPolicy(statusItemFrame: statusItemFrameForDismissal?()).shouldDismiss(at: point)
@@ -84,21 +97,29 @@ final class AnchoredStatusPanel: NSPanel {
 
     func ownsEventWindow(_ window: NSWindow?) -> Bool {
         guard let window else { return false }
-        return window === self || childWindows?.contains { $0 === window } == true
+        return Self.windowTree(self, owns: window)
+    }
+
+    private static func windowTree(_ root: NSWindow, owns window: NSWindow) -> Bool {
+        root === window || root.childWindows?.contains { windowTree($0, owns: window) } == true
     }
 
     static func isSheet(_ window: NSWindow?, attachedTo parent: NSWindow, child: NSWindow) -> Bool {
         var sheetParent = window?.sheetParent
         while let current = sheetParent {
-            if current === parent || current === child { return true }
+            if windowTree(parent, owns: current) || windowTree(child, owns: current) { return true }
             sheetParent = current.sheetParent
         }
         return false
     }
 
     func containsScreenPoint(_ point: NSPoint) -> Bool {
-        (isVisible && frame.contains(point))
-            || childWindows?.contains { $0.isVisible && $0.frame.contains(point) } == true
+        Self.windowTree(self, contains: point)
+    }
+
+    private static func windowTree(_ root: NSWindow, contains point: NSPoint) -> Bool {
+        (root.isVisible && root.frame.contains(point))
+            || root.childWindows?.contains { windowTree($0, contains: point) } == true
     }
     /// Clearance reserved for an auto-hidden Dock on the anchored edge (#229).
     private var dockInset = DockReveal.noInset
@@ -328,7 +349,12 @@ final class AnchoredStatusPanel: NSPanel {
 
     override func cancelOperation(_ sender: Any?) {
         if let submenuCoordinator, submenuCoordinator.hasOpenChild {
-            submenuCoordinator.close()
+            if let child = childWindows?.compactMap({ $0 as? AnchoredStatusPanel }).first,
+               child.submenuCoordinator?.hasOpenChild == true {
+                child.cancelOperation(sender)
+            } else {
+                submenuCoordinator.close()
+            }
         } else {
             performClose(nil)
         }

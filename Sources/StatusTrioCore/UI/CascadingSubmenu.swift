@@ -1,13 +1,21 @@
 import AppKit
 import SwiftUI
 
-/// One child per root panel. Ownership tokens prevent a stale entry's teardown
+/// One child per panel level. Ownership tokens prevent a stale entry's teardown
 /// from closing the replacement that the pointer has already opened.
 @MainActor
 final class CascadingSubmenuCoordinator: ObservableObject {
     private var owner: UUID?
     private var closeChild: (() -> Void)?
     var hasOpenChild: Bool { owner != nil }
+    var pointerLocation: () -> NSPoint = { NSEvent.mouseLocation }
+
+    func containsPointer(anchor: NSView?, child: AnchoredStatusPanel?) -> Bool {
+        let point = pointerLocation()
+        if child?.containsScreenPoint(point) == true { return true }
+        guard let anchor, let window = anchor.window else { return false }
+        return window.convertToScreen(anchor.convert(anchor.bounds, to: nil)).contains(point)
+    }
     /// Binding setters may preserve a remembered detail route on whole-group close.
     private(set) var isClosingParent = false
 
@@ -108,26 +116,26 @@ private struct CascadingSubmenuModifier<ChildContent: View>: ViewModifier {
     let backgroundStyle: PanelBackgroundStyle
     let childContent: ChildContent
     @Environment(\.cascadingSubmenuCoordinator) private var coordinator
-    @Environment(\.isCascadingSubmenu) private var isChild
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var fallbackCoordinator = CascadingSubmenuCoordinator()
 
     func body(content: Content) -> some View {
-        if isChild {
-            content
-        } else {
-            content
-                .background {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.primary.opacity(isPresented ? (colorScheme == .dark ? 0.10 : 0.07) : 0))
-                }
-                .background(CascadingSubmenuAnchor(
-                    isPresented: $isPresented,
-                    sharedCoordinator: coordinator ?? fallbackCoordinator,
-                    backgroundStyle: backgroundStyle,
-                    childContent: AnyView(childContent)
-                ))
-        }
+        content
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.primary.opacity(isPresented ? (colorScheme == .dark ? 0.10 : 0.07) : 0))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .background(CascadingSubmenuAnchor(
+                isPresented: $isPresented,
+                sharedCoordinator: coordinator ?? fallbackCoordinator,
+                backgroundStyle: backgroundStyle,
+                childContent: AnyView(childContent)
+            ))
+            .padding(.horizontal, -8)
+            .padding(.vertical, -6)
     }
 }
 
@@ -195,7 +203,7 @@ private struct CascadingSubmenuAnchor: NSViewRepresentable {
                 onHoverExited: { [weak presenter] in presenter?.childHoverExited() }
             )
                 .environmentObject(localization)
-                .environment(\.cascadingSubmenuCoordinator, sharedCoordinator)
+                .environment(\.cascadingSubmenuCoordinator, presenter?.childCoordinator)
                 .environment(\.isCascadingSubmenu, true)
                 .environment(\.statusPanelManagesScrolling, true)
                 .environment(\.self, inheritedEnvironment))
@@ -244,6 +252,7 @@ private final class CascadingSubmenuAnchorView: CascadingSubmenuHoverView {
 @MainActor
 private final class CascadingSubmenuPresenter {
     private let owner = UUID()
+    let childCoordinator = CascadingSubmenuCoordinator()
     private weak var anchor: NSView?
     private weak var parent: NSWindow?
     private var binding: Binding<Bool>?
@@ -284,6 +293,7 @@ private final class CascadingSubmenuPresenter {
     func hoverEntered() {
         cancelPendingHover()
         cancelPendingClose()
+        (parent as? AnchoredStatusPanel)?.onSubmenuHoverEntered?()
         guard binding?.wrappedValue == false else { return }
         hoverTask = Task { @MainActor [weak self] in
             do { try await Task.sleep(for: .milliseconds(220)) } catch { return }
@@ -299,8 +309,15 @@ private final class CascadingSubmenuPresenter {
         scheduleClose()
     }
 
-    func childHoverEntered() { cancelPendingClose() }
-    func childHoverExited() { scheduleClose() }
+    func childHoverEntered() {
+        cancelPendingClose()
+        (parent as? AnchoredStatusPanel)?.onSubmenuHoverEntered?()
+    }
+
+    func childHoverExited() {
+        scheduleClose()
+        (parent as? AnchoredStatusPanel)?.onSubmenuHoverExited?()
+    }
 
     private func cancelPendingHover() {
         hoverTask?.cancel()
@@ -318,6 +335,7 @@ private final class CascadingSubmenuPresenter {
         closeTask = Task { @MainActor [weak self] in
             do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
             guard !Task.isCancelled, let self else { return }
+            guard self.coordinator?.containsPointer(anchor: self.anchor, child: self.child) != true else { return }
             self.coordinator?.close(owner: self.owner)
         }
     }
@@ -344,6 +362,12 @@ private final class CascadingSubmenuPresenter {
         self.parent = parent
         (parent as? AnchoredStatusPanel)?.submenuCoordinator = resolvedCoordinator
         let panel = AnchoredStatusPanel()
+        childCoordinator.pointerLocation = { [weak resolvedCoordinator] in
+            resolvedCoordinator?.pointerLocation() ?? NSEvent.mouseLocation
+        }
+        panel.submenuCoordinator = childCoordinator
+        panel.onSubmenuHoverEntered = { [weak self] in self?.childHoverEntered() }
+        panel.onSubmenuHoverExited = { [weak self] in self?.childHoverExited() }
         if let parent = parent as? AnchoredStatusPanel {
             panel.inheritBackgroundTestingPolicy(from: parent)
         }
@@ -356,12 +380,13 @@ private final class CascadingSubmenuPresenter {
             self.coordinator?.close(owner: self.owner)
         }
         parent.addChildWindow(panel, ordered: .above)
-        // Use the root panel's horizontal edges and the entry's vertical edges:
+        // Use the parent panel's horizontal edges and the entry's vertical edges:
         // content padding must not make the child overlap its parent.
         let parentBounds = parent.contentView.map { $0.convert($0.bounds, to: anchor) } ?? anchor.bounds
         let placementRect = NSRect(x: parentBounds.minX, y: anchor.bounds.minY,
                                    width: parentBounds.width, height: anchor.bounds.height)
-        panel.show(relativeTo: placementRect, of: anchor, preferredEdge: .maxX, alignsTop: true)
+        panel.show(relativeTo: placementRect, of: anchor,
+                   preferredEdge: (parent as? AnchoredStatusPanel)?.preferredSubmenuEdge ?? .maxX, alignsTop: true)
         if !panel.disablesKeyWindowForTesting {
             panel.makeKey()
             panel.makeFirstResponder(nil)
@@ -398,7 +423,7 @@ private final class CascadingSubmenuPresenter {
             return
         }
         if AnchoredStatusPanel.isSheet(event.window, attachedTo: parent, child: child) { return }
-        if event.window === child { return }
+        if child.ownsEventWindow(event.window) { return }
         if event.window === parent {
             if let anchor {
                 let point = anchor.convert(event.locationInWindow, from: nil)
@@ -408,9 +433,17 @@ private final class CascadingSubmenuPresenter {
         } else {
             let point = event.window?.convertToScreen(NSRect(origin: event.locationInWindow, size: .zero)).origin
                 ?? NSEvent.mouseLocation
-            if let panel = parent as? AnchoredStatusPanel,
-               !panel.shouldDismissForOutsideClick(at: point) { return }
-            (parent as? AnchoredStatusPanel)?.close()
+            if let panel = parent as? AnchoredStatusPanel {
+                let root = panel.rootPanel
+                // An ancestor or sibling click closes this branch; its own
+                // presenter decides whether any higher level should close.
+                if root.ownsEventWindow(event.window) {
+                    coordinator?.close(owner: owner)
+                    return
+                }
+                guard root.shouldDismissForOutsideClick(at: point) else { return }
+                root.close()
+            }
             coordinator?.close(owner: owner)
         }
     }
@@ -425,12 +458,14 @@ private final class CascadingSubmenuPresenter {
         parentGeometryObservers.forEach { NotificationCenter.default.removeObserver($0) }
         parentGeometryObservers = []
         let panel = child
-        let restoreKey = panel?.isKeyWindow == true
+        let restoreKey = panel?.ownsEventWindow(NSApp.keyWindow) == true
             && panel?.isClosingForFocusLoss != true
             && (parent as? AnchoredStatusPanel)?.isClosing != true
         child = nil
         host = nil
         panel?.onClose = nil
+        panel?.onSubmenuHoverEntered = nil
+        panel?.onSubmenuHoverExited = nil
         if let panel { parent?.removeChildWindow(panel); panel.close() }
         if panel != nil, binding?.wrappedValue == true { binding?.wrappedValue = false }
         if restoreKey, parent?.isVisible == true { parent?.makeKey() }

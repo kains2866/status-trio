@@ -4,6 +4,7 @@ struct WiFiNetworkListView: View {
     @EnvironmentObject private var localization: Localization
     @Environment(\.isCascadingSubmenu) private var isSubmenu
     @Environment(\.colorScheme) private var colorScheme
+    @State private var showsNestedDetails = false
     let state: WiFiPanelState
     let onBack: () -> Void
     let onRequestNameAccess: () -> Void
@@ -54,6 +55,10 @@ struct WiFiNetworkListView: View {
                 .buttonStyle(.plain)
                 .help(localization.string(.networkActionShareInternetHelp))
         }
+        .onDisappear { showsNestedDetails = false }
+        .onChange(of: state.showsConnectionDetails) { hasDetails in
+            if !hasDetails { showsNestedDetails = false }
+        }
     }
 
     private var networkSections: some View {
@@ -98,14 +103,18 @@ struct WiFiNetworkListView: View {
         }
     }
 
+    private var detailsBelongToHotspot: Bool {
+        state.personalHotspotRows.contains(where: \.selected)
+    }
+
     @ViewBuilder
     private var knownNetworksSection: some View {
-        if !state.knownRows.isEmpty || state.showsConnectionDetails {
+        if !state.knownRows.isEmpty || (state.showsConnectionDetails && !detailsBelongToHotspot) {
             sectionTitle(localization.string(.wifiKnownNetworks))
             ForEach(state.knownRows, id: \.key) { row in
                 networkRow(row)
             }
-            if state.showsConnectionDetails {
+            if state.showsConnectionDetails && !detailsBelongToHotspot {
                 detailsToggle
             }
         }
@@ -123,16 +132,18 @@ struct WiFiNetworkListView: View {
 
     @ViewBuilder
     private var detailsToggle: some View {
-        if !isSubmenu {
+        if isSubmenu {
+            CascadingSubmenuButton(title: localization.string(.wifiDetailsShow), isPresented: $showsNestedDetails) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(state.detail.title).font(.headline)
+                    WiFiDetailsView(state: state, showsMore: showsMoreBinding, onCopyValue: onCopyValue)
+                }
+            }
+        } else {
             WiFiDetailsToggleRow(isExpanded: showsDetailsBinding)
-        }
-
-        if isSubmenu || showsDetails {
-            WiFiDetailsView(
-                state: state,
-                showsMore: showsMoreBinding,
-                onCopyValue: onCopyValue
-            )
+            if showsDetails {
+                WiFiDetailsView(state: state, showsMore: showsMoreBinding, onCopyValue: onCopyValue)
+            }
         }
     }
 
@@ -273,7 +284,7 @@ private struct WiFiDetailsView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.leading, 26)
+        .padding(.leading, isSubmenu ? 0 : 26)
         .font(.caption)
     }
 }
