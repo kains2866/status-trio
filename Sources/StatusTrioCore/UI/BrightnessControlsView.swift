@@ -75,12 +75,22 @@ private struct BrightnessRowView: View {
             .accessibilityHidden(true)
 
             Text(displayName)
-                .font(.caption)
+                .font(.system(size: DeviceNameHoverMetrics.fontSize))
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .frame(width: 72, alignment: .leading)
-                .help(accessibilityName)
+                .frame(width: DeviceNameHoverMetrics.textWidth, alignment: .leading)
+                .padding(.leading, DeviceNameHoverMetrics.inset)
                 .accessibilityHidden(true)
+
+            Button(action: onOpenDisplaySettings) {
+                PanelActionGlyph(systemName: "gearshape", font: .system(size: 12), size: 18)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(localization.string(.brightnessActionOpenSettings))
+            .accessibilityLabel(localization.string(.brightnessActionOpenSettings))
 
             Group {
                 if row.canAdjust {
@@ -124,15 +134,9 @@ private struct BrightnessRowView: View {
                 .frame(width: 34, alignment: .trailing)
                 .accessibilityHidden(true)
 
-            Button(action: onOpenDisplaySettings) {
-                PanelActionGlyph(systemName: "gearshape")
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(localization.string(.brightnessActionOpenSettings))
-            .accessibilityLabel(localization.string(.brightnessActionOpenSettings))
         }
+        .deviceNameHoverReveal(displayName, leadingInset: PanelSummaryActionMetrics.leadingGlyphSlot + 8,
+                               trailingInset: 34 + 8)
         .onAppear { if !isEditing { draft = row.scalar ?? 0 } }
         .onChange(of: row.scalar) { newValue in
             if !isEditing, let newValue {

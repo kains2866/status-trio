@@ -746,7 +746,7 @@
 "settings.tab.brightness" = "亮度";
 "settings.brightness.group.title" = "已連接的顯示器";
 "settings.brightness.empty" = "沒有已連接的顯示器。";
-"settings.brightness.builtIn" = "內建";
+"settings.brightness.builtIn" = "內建顯示器";
 "settings.brightness.internalBackend.description" = "內建顯示器的亮度使用 DisplayServices 後端。";
 "settings.brightness.externalBackend.description" = "選擇 Status Trio 控制此顯示器亮度的方式。";
 "settings.brightness.backend.betterDisplayNeeded" = "BetterDisplay 未執行，或未開啟通知整合。";

@@ -58,7 +58,7 @@ struct AudioDeviceLevelRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Button {
                 guard !state.selected, !state.isPreview else { return }
                 onSelect()
@@ -78,11 +78,11 @@ struct AudioDeviceLevelRow: View {
             .accessibilityValue(state.selected ? localization.string(isInput ? .audioInputCurrent : .volumeOutputCurrent) : "")
 
             Text(state.name)
-                .font(.caption)
+                .font(.system(size: DeviceNameHoverMetrics.fontSize))
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .frame(width: 72, alignment: .leading)
-                .help(state.name)
+                .frame(width: DeviceNameHoverMetrics.textWidth, alignment: .leading)
+                .padding(.leading, DeviceNameHoverMetrics.inset)
 
             Button {
                 guard !state.isPreview, state.key.hasStableUID else { return }
@@ -144,6 +144,8 @@ struct AudioDeviceLevelRow: View {
                 .accessibilityHidden(true)
         }
         .padding(.vertical, 3)
+        .deviceNameHoverReveal(state.name, leadingInset: PanelSummaryActionMetrics.leadingGlyphSlot + 8,
+                               trailingInset: 34 + 8)
         .onAppear { synchronize() }
         .onChange(of: state) { _ in synchronize() }
         .onChange(of: hasError) { _ in synchronize() }
