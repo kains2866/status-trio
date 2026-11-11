@@ -19,9 +19,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.2</string>
+	<string>1.9.3</string>
 	<key>CFBundleVersion</key>
-	<string>49</string>
+	<string>50</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>
@@ -41,8 +41,8 @@
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/lingyired/status-trio/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/kains2866/status-trio/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>N5FLwhXCzo7Z/8z3lOWbOJ7aW04hvXxI7LUk+6f+yDQ=</string>
+	<string>rUQ0AqAEFdWT84/qfrWF6nbfNET445YMghj/oZVKBW8=</string>
 </dict>
 </plist>
