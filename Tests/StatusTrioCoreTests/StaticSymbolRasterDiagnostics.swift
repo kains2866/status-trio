@@ -1,6 +1,7 @@
 import AppKit
 import CryptoKit
 import Foundation
+@testable import StatusTrioCore
 
 @MainActor
 func staticSymbolRasterBaselineFingerprints() -> Set<String>? {
@@ -15,7 +16,10 @@ func staticSymbolRasterBaselineFingerprints() -> Set<String>? {
         // STATUS_TRIO_STATIC_ICON_DIAGNOSTICS=1 on a new environment.
         return [
             "b96f244a941726e997eeb1a173f715ca0ce187aec75fed536426d5b1b076328b",
-            "2b80a2f6e7d2e107e498c689e430910bccc027a7b7dfe56c7353a3b6b40f98a8"
+            "2b80a2f6e7d2e107e498c689e430910bccc027a7b7dfe56c7353a3b6b40f98a8",
+            // macOS 27.0.1 / SDK 27.2: independently reproduced AppKit ink;
+            // see docs/verification/2026-11-11-personal-release-raster.md.
+            "6f5b14cf75299fc873d0b2b75949417d1e68ae8ccd641d84d76753299e8ee1ec"
         ]
     case (27, 51, 46):
         // CI's 1x display rasterises the same symbol metrics differently from
@@ -80,7 +84,8 @@ func printStaticSymbolRasterDiagnostics() {
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
         context.scaleBy(x: 1, y: -1)
         image.draw(in: CGRect(
-            x: 59.5 - size.width / 2 - offset, y: -(64 + size.height / 2),
+            x: 59.5 - size.width / 2 - offset,
+            y: -(StatusIconGeometry.batteryCenterY + size.height / 2),
             width: size.width, height: size.height
         ))
         NSGraphicsContext.restoreGraphicsState()
