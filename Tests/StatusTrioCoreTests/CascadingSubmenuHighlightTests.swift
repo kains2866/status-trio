@@ -6,28 +6,38 @@ import XCTest
 @MainActor
 final class CascadingSubmenuHighlightTests: XCTestCase {
     func testHighlightAddsClearanceWithoutMovingContentOrChangingLayout() throws {
-        for dark in [false, true] {
-            let snapshot = try capture(dark: dark, presented: true)
-            let plain = try capture(dark: dark, presented: false)
-            XCTAssertEqual(snapshot.size.width, 140, accuracy: 0.1)
-            XCTAssertEqual(snapshot.size.height, 80, accuracy: 0.1)
-            // Original content occupies x=20...120, y=20...60. Highlight must
-            // extend beyond it; the existing summary alignment stays fixed.
-            let edge = try color(snapshot.bitmap, x: 15, y: 40)
-            let backdrop = dark ? 0.0 : 1.0
-            XCTAssertGreaterThan(abs(edge.redComponent - backdrop), 0.03,
-                                 "the highlight needs horizontal breathing room")
-            let top = try color(snapshot.bitmap, x: 70, y: 16)
-            XCTAssertGreaterThan(abs(top.redComponent - backdrop), 0.03,
-                                 "the highlight needs vertical breathing room")
-            let corner = try color(snapshot.bitmap, x: 14, y: 18)
-            XCTAssertEqual(corner.redComponent, backdrop, accuracy: 0.02,
-                           "larger rounded corners must leave the outer corner clear")
-            let content = try color(snapshot.bitmap, x: 22, y: 40)
-            let original = try color(plain.bitmap, x: 22, y: 40)
-            XCTAssertEqual(content.redComponent, original.redComponent, accuracy: 0.01)
-            XCTAssertEqual(content.greenComponent, original.greenComponent, accuracy: 0.01)
-            XCTAssertEqual(content.blueComponent, original.blueComponent, accuracy: 0.01)
+        for scale in [CGFloat(1), CGFloat(2)] {
+            for dark in [false, true] {
+                let snapshot = try capture(dark: dark, presented: true, scale: scale)
+                let plain = try capture(dark: dark, presented: false, scale: scale)
+                XCTAssertEqual(snapshot.bitmap.pixelsWide, Int(140 * scale))
+                XCTAssertEqual(snapshot.bitmap.pixelsHigh, Int(80 * scale))
+                XCTAssertEqual(snapshot.bitmap.size, NSSize(width: 140, height: 80))
+                XCTAssertEqual(snapshot.size.width, 140, accuracy: 0.1)
+                XCTAssertEqual(snapshot.size.height, 80, accuracy: 0.1)
+                // Original content occupies x=20...120, y=20...60. Highlight must
+                // extend beyond it; the existing summary alignment stays fixed.
+                let edge = try color(snapshot.bitmap, x: 15, y: 40)
+                let backdrop = dark ? 0.0 : 1.0
+                XCTAssertGreaterThan(abs(edge.redComponent - backdrop), 0.03,
+                                     "the highlight needs horizontal breathing room")
+                let top = try color(snapshot.bitmap, x: 70, y: 16)
+                XCTAssertGreaterThan(abs(top.redComponent - backdrop), 0.03,
+                                     "the highlight needs vertical breathing room")
+                // This entire 1x pixel is outside the 12pt arc; (14,18) straddles
+                // it at 1x, even though its first 2x subpixel is fully clear.
+                let corner = try color(snapshot.bitmap, x: 13, y: 18)
+                XCTAssertEqual(corner.redComponent, backdrop, accuracy: 0.02,
+                               "larger rounded corners must leave the outer corner clear (\(scale)x, dark=\(dark))")
+                let nearCorner = try color(snapshot.bitmap, x: 16, y: 20)
+                XCTAssertGreaterThan(abs(nearCorner.redComponent - backdrop), 0.03,
+                                     "the rounded highlight must still fill near the corner")
+                let content = try color(snapshot.bitmap, x: 22, y: 40)
+                let original = try color(plain.bitmap, x: 22, y: 40)
+                XCTAssertEqual(content.redComponent, original.redComponent, accuracy: 0.01)
+                XCTAssertEqual(content.greenComponent, original.greenComponent, accuracy: 0.01)
+                XCTAssertEqual(content.blueComponent, original.blueComponent, accuracy: 0.01)
+            }
         }
     }
 
@@ -83,7 +93,7 @@ final class CascadingSubmenuHighlightTests: XCTestCase {
         }
     }
 
-    private func capture(dark: Bool, presented: Bool) throws -> (bitmap: NSBitmapImageRep, size: NSSize) {
+    private func capture(dark: Bool, presented: Bool, scale: CGFloat? = nil) throws -> (bitmap: NSBitmapImageRep, size: NSSize) {
         let suite = "CascadingSubmenuHighlightTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -104,7 +114,20 @@ final class CascadingSubmenuHighlightTests: XCTestCase {
         window.contentView = host
         defer { window.contentView = nil; window.close() }
         host.layoutSubtreeIfNeeded()
-        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        let bitmap: NSBitmapImageRep
+        if let scale {
+            bitmap = try XCTUnwrap(NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: Int(host.bounds.width * scale),
+                pixelsHigh: Int(host.bounds.height * scale),
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                isPlanar: false, colorSpaceName: .deviceRGB,
+                bytesPerRow: 0, bitsPerPixel: 0
+            ))
+            bitmap.size = host.bounds.size
+        } else {
+            bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        }
         host.cacheDisplay(in: host.bounds, to: bitmap)
         return (bitmap, host.bounds.size)
     }
