@@ -14,6 +14,11 @@ struct OutputDeviceList: View {
     /// re-read after the panel reopens. Only used when there are no rows yet.
     var skeleton: PanelListLayoutSnapshot? = nil
 
+    var scrollTargets: PopoverScrollTargets? = nil
+    var onSetLevel: (Double, PanelAudioDeviceID, UUID) -> Void = { _, _, _ in }
+    var onFinishLevel: (PanelAudioDeviceID) -> Void = { _ in }
+    var onToggleMute: (PanelAudioDeviceID) -> Void = { _ in }
+
     @State private var isExpanded = false
 
     var body: some View {
@@ -52,7 +57,7 @@ struct OutputDeviceList: View {
 
                 if OutputDeviceListPresentation.canToggleExpansion(for: rows, limit: visibleLimit) {
                     CascadingSubmenuButton(title: expandLabel, isPresented: $isExpanded) {
-                        deviceRows(Array(rows.dropFirst(visibleRows.count)))
+                        deviceRows(OutputDeviceListPresentation.overflowRows(from: rows, limit: visibleLimit))
                     }
                 }
             }
@@ -71,8 +76,13 @@ struct OutputDeviceList: View {
             onSelect: { onSelect(row.key) },
             onSelectListeningMode: { mode in
                 guard let address = row.listeningModeAddress else { return }
+                guard !row.isPreview else { return }
                 onSelectListeningMode(address, mode)
-            }
+            },
+            scrollTargets: scrollTargets,
+            onSetLevel: onSetLevel,
+            onFinishLevel: onFinishLevel,
+            onToggleMute: onToggleMute
         )
     }
 }

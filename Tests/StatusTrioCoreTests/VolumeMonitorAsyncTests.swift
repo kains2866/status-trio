@@ -4,6 +4,46 @@ import XCTest
 
 @MainActor
 final class VolumeMonitorAsyncTests: XCTestCase {
+    func testNativeDeviceReadbackRevisionAdvancesAfterFailedOrSuccessfulWriteButNotStaleInventory() async {
+        for succeeds in [false, true] {
+            let reader = DeferredAudioStatusReader()
+            let controller = RecordingAudioCommands()
+            controller.targetWriteSucceeds = succeeds
+            let sleeper = ManualEventSleeper()
+            let monitor = makeMonitor(reader: reader, controller: controller, sleeper: sleeper)
+            let current = AudioOutputDevice(id: 42, name: "AirPods Pro", uid: "airpods", isCurrent: true,
+                                            level: .init(scalar: 0.4, canAdjust: true, muteState: .unmuted, canMute: true))
+            monitor.start()
+            reader.complete(reading(scalar: 0.4, devices: [current]))
+            var iterator = monitor.updates.makeAsyncIterator()
+            let initial = await iterator.next()
+            XCTAssertEqual(initial?.nativeDeviceLevelReadbackRevision, 1)
+
+            monitor.refresh()
+            monitor.setVolume(0.8, forDeviceID: 42, expectedUID: "airpods")
+            XCTAssertEqual(controller.targetWriteCount, 1)
+            let scheduled = await sleeper.waitForCallCount(1, timeout: .seconds(5))
+            XCTAssertTrue(scheduled)
+            reader.complete(reading(scalar: 0.1, devices: [current])) // predates command: discarded
+            let freshRead = expectation(description: "fresh command readback")
+            reader.onRead = { freshRead.fulfill() }
+            sleeper.releaseAll()
+            await fulfillment(of: [freshRead], timeout: 5)
+            reader.onRead = nil
+            let scalar = succeeds ? 0.8 : 0.4
+            reader.complete(reading(scalar: scalar, devices: [current.replacingVolume(scalar)]))
+            let readback = await iterator.next()
+            XCTAssertEqual(readback?.nativeDeviceLevelReadbackRevision, 2, "Discarded inventory must not consume a revision")
+            XCTAssertEqual(readback?.scalar, scalar, "Failed write still publishes unchanged authoritative readback")
+
+            monitor.refresh()
+            reader.complete(reading(scalar: scalar)) // no inventory read: revision unchanged
+            let levelOnly = await iterator.next()
+            XCTAssertEqual(levelOnly?.nativeDeviceLevelReadbackRevision, 2)
+            monitor.stop()
+        }
+    }
+
     func testRefreshBurstRetainsOneFollowUpAndUpgradesToDeviceEnumeration() async {
         let reader = DeferredAudioStatusReader()
         let events = AsyncVolumeEvents()
@@ -410,6 +450,12 @@ private enum AudioCommand: CaseIterable { case setVolume, toggleMute, selectDevi
 
 @MainActor
 private final class RecordingAudioCommands: AudioOutputControlling {
+    var targetWriteSucceeds = false
+    private(set) var targetWriteCount = 0
+    func isCurrentOutputDevice(_ deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { targetWriteCount += 1; return targetWriteSucceeds }
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+
     private(set) var commands: [AudioCommand] = []
     func setVolume(_ scalar: Double) -> Bool {
         XCTAssertEqual(scalar, 0.8)

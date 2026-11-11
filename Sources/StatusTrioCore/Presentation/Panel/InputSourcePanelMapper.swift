@@ -9,11 +9,12 @@ enum InputSourcePanelMapper {
         localization: Localization
     ) -> InputSourcePanelState {
         let rows = state.sources.map { source in
-            InputSourcePanelState.Row(
+            let drawingSource = source.resolvedForDrawing()
+            return InputSourcePanelState.Row(
                 id: source.id,
                 name: source.localizedName,
-                iconURL: source.iconURL,
-                marker: source.shortLabel,
+                iconURL: drawingSource.iconURL,
+                marker: drawingSource.shortLabel,
                 isCurrent: source.id == state.selectedID
             )
         }

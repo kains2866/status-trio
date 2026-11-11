@@ -70,23 +70,30 @@ enum AudioPanelMapper {
             order: deviceList.order,
             hiddenUIDs: deviceList.hiddenUIDs
         )
-        let rows = outputRows(orderedDevices, listeningModes: listeningModes, localization: localization)
-        // A lone row is not a choice, unless the panel kept it because it is the active
-        // output: hiding every device must never hide what is playing right now.
-        let keepsHiddenActiveDevice = orderedDevices.count == 1
-            && OutputDeviceListPresentation.isHidden(orderedDevices[0], in: deviceList.hiddenUIDs)
+        let rows = outputRows(orderedDevices, listeningModes: listeningModes, localization: localization).map { row in
+            var resolved = row
+            resolved.nativeDeviceLevelReadbackRevision = row.key == outputIdentity && status.controlSource != .native
+                ? 0 : status.nativeDeviceLevelReadbackRevision
+            if row.key == outputIdentity {
+                resolved.interactionIdentity = interactionIdentity
+                resolved.level = AudioDeviceLevel(
+                    scalar: scalar, canAdjust: controllerAvailable && status.canSetVolume && scalar != nil,
+                    muteState: outputMuteState(status.muteState), canMute: canMute
+                )
+            } else if let level = row.level {
+                resolved.level = sanitizedLevel(level, controlsEnabled: controllerAvailable)
+            }
+            if let level = resolved.level {
+                resolved.level = sanitizedLevel(level, controlsEnabled: row.key.hasStableUID)
+            }
+            return resolved
+        }
         let previewRows = outputRows(
             previewDevices,
             listeningModes: listeningModes,
             isPreview: true,
             localization: previewLocalization ?? localization
         )
-        // A lone row may still carry the only listening-mode control (AirPods
-        // noise control). Hiding the other outputs must not take that control
-        // away with the list, so a row that can change a listening mode keeps
-        // the list visible even when it is the only device left.
-        let hasListeningControls = rows.contains { $0.listeningMode?.isControllable == true }
-
         return VolumePanelState(
             summary: summary,
             scalar: scalar,
@@ -104,8 +111,7 @@ enum AudioPanelMapper {
                     : .volumeMuteUnavailable
             ),
             sliderLabel: localization.string(.volumeAccessibilityLabel),
-            showsDeviceList: orderedDevices.count > 1 || keepsHiddenActiveDevice
-                || hasListeningControls || !previewRows.isEmpty
+            showsDeviceList: !orderedDevices.isEmpty || !previewRows.isEmpty
                 || (deviceListPlaceholder?.showsDeviceList == true),
             deviceListPlaceholder: deviceListPlaceholder,
             rows: rows,
@@ -142,7 +148,27 @@ enum AudioPanelMapper {
             unknownName: unknownName,
             locale: presentation.locale,
             localization: localization
-        )
+        ).map { row in
+            var resolved = row
+            if row.selected {
+                resolved.level = AudioDeviceLevel(
+                    scalar: readableScalar(status.scalar), canAdjust: presentation.volumeEnabled,
+                    muteState: inputMuteState(status.muteState), canMute: presentation.muteEnabled
+                )
+            } else if let level = row.level {
+                resolved.level = sanitizedLevel(level, controlsEnabled: !presentation.blocksControls)
+            }
+            if let completion = status.completedDeviceScalarRequests[row.key.id], completion.uid == row.key.uid {
+                resolved.completedLevelRequestID = completion.requestID
+            } else if status.completedDeviceScalarDeviceID == row.key.id,
+               status.completedDeviceScalarDeviceUID == row.key.uid {
+                resolved.completedLevelRequestID = status.completedDeviceScalarRequestID
+            }
+            if let level = resolved.level {
+                resolved.level = sanitizedLevel(level, controlsEnabled: row.key.hasStableUID)
+            }
+            return resolved
+        }
         let name = inputDefaultName(status, unknownName: unknownName, localization: localization)
         let usageText = presentation.isDefaultInputInUse
             ? localization.string(.audioInputInUse)
@@ -244,7 +270,8 @@ enum AudioPanelMapper {
                 },
                 listeningModeAddress: listeningModes?.control(forEndpoint: device.id)?.address,
                 listeningMode: listeningModes?.control(forEndpoint: device.id)?.presentation,
-                isPreview: isPreview
+                isPreview: isPreview,
+                level: device.level ?? AudioDeviceLevel(scalar: readableScalar(device.volume), canAdjust: false, muteState: .unknown, canMute: false)
             )
         }
     }
@@ -283,7 +310,8 @@ enum AudioPanelMapper {
                 symbol: .symbol(name: selected ? "mic.fill" : "mic", variableValue: nil, fallback: nil),
                 selected: selected,
                 enabled: !isBusy,
-                accessibilityLabel: label
+                accessibilityLabel: label,
+                level: device.level
             )
         }
     }
@@ -320,6 +348,30 @@ enum AudioPanelMapper {
         }
     }
 
+    private static func sanitizedLevel(_ level: AudioDeviceLevel, controlsEnabled: Bool) -> AudioDeviceLevel {
+        let scalar = readableScalar(level.scalar)
+        return AudioDeviceLevel(scalar: scalar, canAdjust: controlsEnabled && level.canAdjust && scalar != nil,
+                                muteState: level.muteState,
+                                canMute: controlsEnabled && level.canMute && level.muteState != .unknown)
+    }
+
+    private static func outputMuteState(_ state: VolumeMuteState) -> AudioDeviceMuteState {
+        switch state {
+        case .unknown: .unknown
+        case .muted: .muted
+        case .unmuted: .unmuted
+        }
+    }
+
+    private static func inputMuteState(_ state: AudioInputMuteState?) -> AudioDeviceMuteState {
+        switch state {
+        case .muted: .muted
+        case .unmuted: .unmuted
+        case .partial: .partial
+        case nil: .unknown
+        }
+    }
+
     private static func percentage(_ scalar: Double?, locale: Locale) -> String {
         guard let scalar else { return "—" }
         return scalar.formatted(.percent.precision(.fractionLength(0)).locale(locale))
@@ -349,15 +401,11 @@ struct AudioInputPresentation {
 
     static func ordered(
         _ devices: [AudioInputDevice],
-        currentID: AudioDeviceID?,
+        currentID _: AudioDeviceID?,
         locale: Locale,
         unknownName: String
     ) -> [AudioInputDevice] {
         devices.sorted { lhs, rhs in
-            let lhsIsCurrent = lhs.id == currentID
-            let rhsIsCurrent = rhs.id == currentID
-            if lhsIsCurrent != rhsIsCurrent { return lhsIsCurrent }
-
             let comparison = displayName(for: lhs, unknownName: unknownName)
                 .compare(
                     displayName(for: rhs, unknownName: unknownName),
@@ -370,8 +418,7 @@ struct AudioInputPresentation {
         }
     }
 
-    /// The saved order first. Devices it doesn't name follow in the default
-    /// order: the current input, then by name.
+    /// The saved order first, then by name. Selecting an input never moves it.
     static func ordered(
         _ devices: [AudioInputDevice],
         currentID: AudioDeviceID?,

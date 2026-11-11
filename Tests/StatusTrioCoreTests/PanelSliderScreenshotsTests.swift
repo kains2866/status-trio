@@ -26,17 +26,17 @@ final class PanelSliderScreenshotsTests: XCTestCase {
                 let host = makeHost(audioPanel(output: output, input: input), dark: dark,
                                     localization: localization)
                 let sliders = nativeSliders(in: host)
-                XCTAssertEqual(sliders.count, 2)
+                XCTAssertEqual(sliders.count, 6)
                 XCTAssertEqual(host.bounds.width, 330, accuracy: 0.1)
-                XCTAssertGreaterThan(host.bounds.height, 280)
+                XCTAssertGreaterThan(host.bounds.height, 240)
                 XCTAssertLessThan(host.bounds.height, 450)
                 for slider in sliders {
                     XCTAssertEqual(slider.isEnabled, mode != .unavailable)
-                    XCTAssertGreaterThan(slider.bounds.width, 100)
+                    XCTAssertGreaterThan(slider.bounds.width, 85)
                 }
                 if mode != .unavailable {
                     XCTAssertEqual(sliders[0].doubleValue, 0.52, accuracy: 0.001)
-                    XCTAssertEqual(sliders[1].doubleValue, 0.65, accuracy: 0.001)
+                    XCTAssertEqual(sliders[3].doubleValue, 0.65, accuracy: 0.001)
                 }
                 try capture(host, name: "audio-\(mode.rawValue)-\(dark ? "dark" : "light")")
             }
@@ -99,15 +99,46 @@ final class PanelSliderScreenshotsTests: XCTestCase {
         .frame(width: 330)
     }
 
+    private func fixtureLevel(_ mode: AudioMode, scalar: Double) -> AudioDeviceLevel {
+        .init(scalar: mode == .unavailable ? nil : scalar, canAdjust: mode != .unavailable,
+              muteState: mode == .muted ? .muted : .unmuted, canMute: mode != .unavailable)
+    }
+
+    func testOneAndOverflowDeviceFixturesKeepOneLevelPerVisibleDevice() throws {
+        defer { closeHiddenWindows() }
+        let localization = try makeLocalization()
+        for dark in [false, true] {
+            for count in [1, 5] {
+                let devices = (1...count).map { index in
+                    AudioOutputDevice(id: UInt32(index), name: "Output \(index)", uid: "output.\(index)",
+                                      isCurrent: index == count,
+                                      level: fixtureLevel(.available, scalar: Double(index) / 10))
+                }
+                let output = AudioPanelMapper.volume(
+                    VolumeStatus(scalar: 0.5, isMuted: false, deviceName: devices.last?.name,
+                                 currentDevice: devices.last, outputDevices: devices, canSetVolume: true, canMute: true),
+                    controllerAvailable: true, localization: localization)
+                XCTAssertEqual(output.visibleRows(expanded: false).count, min(count, 3))
+                XCTAssertTrue(output.visibleRows(expanded: false).contains(where: \.selected))
+                XCTAssertEqual(output.hasHiddenRows, count > 3)
+                let host = makeHost(VolumeControlsView(state: output, actions: StatusPanelActions(),
+                                                      scrollTargets: PopoverScrollTargets(), onOpenSoundSettings: {})
+                    .padding(14).frame(width: 330), dark: dark, localization: localization)
+                XCTAssertEqual(nativeSliders(in: host).count, min(count, 3))
+                try capture(host, name: "audio-output-\(count)-\(dark ? "dark" : "light")")
+            }
+        }
+    }
+
     private func outputState(_ mode: AudioMode, localization: Localization) -> VolumePanelState {
         let scalar: Double? = mode == .unavailable ? nil : 0.52
         let devices = [
             AudioOutputDevice(id: 101, name: "MacBook Pro Speakers", uid: "fixture.speakers",
                               isCurrent: true, volume: scalar, transport: .builtIn),
             AudioOutputDevice(id: 102, name: "Studio AirPods Pro", uid: "fixture.airpods",
-                              isCurrent: false, transport: .bluetooth),
+                              isCurrent: false, transport: .bluetooth, level: fixtureLevel(mode, scalar: 0.31)),
             AudioOutputDevice(id: 103, name: "Dell U2723QE", uid: "fixture.display",
-                              isCurrent: false, transport: .hdmi)
+                              isCurrent: false, transport: .hdmi, level: fixtureLevel(mode, scalar: 0.74))
         ]
         return AudioPanelMapper.volume(VolumeStatus(
             scalar: scalar, isMuted: mode == .muted, deviceName: devices[0].name,
@@ -120,8 +151,8 @@ final class PanelSliderScreenshotsTests: XCTestCase {
         AudioPanelMapper.input(AudioInputStatus(
             devices: [
                 AudioInputDevice(id: 201, uid: "fixture.builtin-mic", name: "MacBook Pro Microphone"),
-                AudioInputDevice(id: 202, uid: "fixture.usb-mic", name: "USB Studio Microphone"),
-                AudioInputDevice(id: 203, uid: "fixture.airpods-mic", name: "Studio AirPods Pro")
+                AudioInputDevice(id: 202, uid: "fixture.usb-mic", name: "USB Studio Microphone", level: fixtureLevel(mode, scalar: 0.22)),
+                AudioInputDevice(id: 203, uid: "fixture.airpods-mic", name: "Studio AirPods Pro", level: fixtureLevel(mode, scalar: 0.81))
             ], defaultDeviceID: 201, deviceName: "MacBook Pro Microphone",
             scalar: mode == .unavailable ? nil : 0.65, canSetVolume: mode != .unavailable,
             muteState: mode == .muted ? .muted : .unmuted, canSetMute: mode != .unavailable,

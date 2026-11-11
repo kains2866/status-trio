@@ -9,6 +9,153 @@ final class AudioInputMonitorTests: XCTestCase {
   private let firstDevice = AudioInputDevice(id: 11, uid: "first", name: "Built-in Mic")
   private let secondDevice = AudioInputDevice(id: 22, uid: "second", name: "USB Mic")
 
+  func testExplicitDeviceRejectsMissingAndWhitespaceUIDWithoutHardwareWrites() async throws {
+    let invalidUIDs: [String?] = [nil, "", "  \n"]
+    for uid in invalidUIDs {
+      let level = AudioDeviceLevel(scalar: 0.2, canAdjust: true, muteState: .unmuted, canMute: true)
+      let hardware = FakeAudioInputHardware(reading: AudioInputReading(devices: [
+        AudioInputDevice(id: 22, uid: uid, name: "USB", level: level)
+      ], defaultDeviceID: 22, deviceName: "USB", scalar: 0.2, canSetVolume: true,
+        muteState: .unmuted, canSetMute: true))
+      let monitor = AudioInputMonitor(hardware: hardware)
+      let log = AudioInputStatusLog(monitor.updates)
+      let loaded = log.expectStatus("loaded") { !$0.devices.isEmpty }
+      monitor.setEnabled(true)
+      monitor.setDeviceListVisible(true)
+      await fulfillment(of: [loaded], timeout: 5)
+      let request = UUID()
+      let rejected = log.expectStatus("invalid UID scalar resolved") { $0.completedDeviceScalarRequestID == request }
+      monitor.setScalar(0.8, onDeviceID: 22, expectedUID: uid, requestID: request)
+      await fulfillment(of: [rejected], timeout: 5)
+      let muteRejected = log.expectStatus("invalid UID mute rejected") { $0.error == .muteFailed }
+      monitor.toggleMute(onDeviceID: 22, expectedUID: uid)
+      await fulfillment(of: [muteRejected], timeout: 5)
+      XCTAssertTrue(hardware.scalarWriteTargets.isEmpty)
+      XCTAssertTrue(hardware.muteWriteTargets.isEmpty)
+      monitor.stop()
+    }
+  }
+
+  func testExplicitDeviceGainAndMutePreserveDefaultSnapshotAndRoute() async throws {
+    let levels = AudioDeviceLevel(scalar: 0.2, canAdjust: true, muteState: .muted, canMute: true)
+    let devices = [firstDevice, AudioInputDevice(id: 22, uid: "second", name: "USB Mic", level: levels)]
+    let initial = AudioInputReading(devices: devices, defaultDeviceID: 11, deviceName: "Built-in Mic",
+      scalar: 0.42, canSetVolume: true, muteState: .unmuted, canSetMute: true)
+    let hardware = FakeAudioInputHardware(reading: initial)
+    let monitor = AudioInputMonitor(hardware: hardware)
+    let log = AudioInputStatusLog(monitor.updates)
+    defer { monitor.stop() }
+    let loaded = log.expectStatus("loaded") { $0.devices.count == 2 }
+    monitor.setEnabled(true)
+    monitor.setDeviceListVisible(true)
+    await fulfillment(of: [loaded], timeout: 5)
+    let request = UUID()
+    let completed = log.expectStatus("target gain acknowledged") { $0.completedDeviceScalarRequestID == request }
+    monitor.setScalar(0.8, onDeviceID: 22, expectedUID: "second", requestID: request)
+    await fulfillment(of: [completed], timeout: 5)
+    let status = try XCTUnwrap(log.values.last)
+    XCTAssertEqual(status.defaultDeviceID, 11)
+    XCTAssertEqual(status.scalar, 0.42)
+    XCTAssertNil(status.completedScalarRequestID)
+    XCTAssertEqual(status.completedDeviceScalarDeviceID, 22)
+    XCTAssertEqual(status.devices.first { $0.id == 22 }?.level?.scalar, 0.8)
+    XCTAssertEqual(status.devices.first { $0.id == 22 }?.level?.muteState, .muted)
+    let muted = log.expectStatus("target unmuted") {
+      $0.devices.first { $0.id == 22 }?.level?.muteState == .unmuted
+    }
+    monitor.toggleMute(onDeviceID: 22, expectedUID: "second")
+    await fulfillment(of: [muted], timeout: 5)
+    XCTAssertEqual(log.values.last?.defaultDeviceID, 11)
+    XCTAssertEqual(log.values.last?.muteState, .unmuted)
+    XCTAssertEqual(hardware.scalarWriteTargets, [22])
+    XCTAssertEqual(hardware.muteWriteTargets, [22])
+  }
+
+  func testLatestSnapshotRetainsCompletionsForBothDeviceRows() async throws {
+    let level = AudioDeviceLevel(scalar: 0.2, canAdjust: true, muteState: .unmuted, canMute: true)
+    let devices = [AudioInputDevice(id: 11, uid: "first", name: "Mic", level: level),
+      AudioInputDevice(id: 22, uid: "second", name: "USB", level: level)]
+    let hardware = FakeAudioInputHardware(reading: AudioInputReading(devices: devices,
+      defaultDeviceID: 11, deviceName: "Mic", scalar: 0.2, canSetVolume: true,
+      muteState: .unmuted, canSetMute: true))
+    let monitor = AudioInputMonitor(hardware: hardware)
+    let log = AudioInputStatusLog(monitor.updates)
+    defer { monitor.stop() }
+    let loaded = log.expectStatus("loaded") { $0.devices.count == 2 }
+    monitor.setEnabled(true)
+    monitor.setDeviceListVisible(true)
+    await fulfillment(of: [loaded], timeout: 5)
+    let first = UUID(), second = UUID()
+    let completed = log.expectStatus("both row completions retained") {
+      $0.completedDeviceScalarRequests[11]?.requestID == first
+        && $0.completedDeviceScalarRequests[22]?.requestID == second
+    }
+    monitor.setScalar(0.4, onDeviceID: 11, expectedUID: "first", requestID: first)
+    monitor.setScalar(0.8, onDeviceID: 22, expectedUID: "second", requestID: second)
+    await fulfillment(of: [completed], timeout: 5)
+    let latest = try XCTUnwrap(log.values.last)
+    XCTAssertEqual(latest.completedDeviceScalarRequests[11]?.uid, "first")
+    XCTAssertEqual(latest.completedDeviceScalarRequests[22]?.uid, "second")
+    let disabled = log.expectStatus("disabled drops retained completions") {
+      !$0.isBusy && $0.completedDeviceScalarRequests.isEmpty
+    }
+    monitor.setEnabled(false)
+    await fulfillment(of: [disabled], timeout: 5)
+  }
+
+  func testQueuedExplicitGainRevalidatesReusedDeviceIDOnWorker() async throws {
+    let level = AudioDeviceLevel(scalar: 0.2, canAdjust: true, muteState: .muted, canMute: true)
+    func snapshot(uid: String) -> AudioInputReading {
+      AudioInputReading(devices: [AudioInputDevice(id: 11, uid: "first", name: "Mic", level: level),
+        AudioInputDevice(id: 22, uid: uid, name: "USB", level: level)], defaultDeviceID: 11,
+        deviceName: "Mic", scalar: 0.2, canSetVolume: true, muteState: .muted, canSetMute: true)
+    }
+    let hardware = FakeAudioInputHardware(reading: snapshot(uid: "old"))
+    let monitor = AudioInputMonitor(hardware: hardware)
+    let log = AudioInputStatusLog(monitor.updates)
+    let gate = ManualAudioGate()
+    defer { gate.release(); monitor.stop() }
+    let loaded = log.expectStatus("loaded") { $0.devices.count == 2 }
+    monitor.setEnabled(true)
+    monitor.setDeviceListVisible(true)
+    await fulfillment(of: [loaded], timeout: 5)
+    let entered = expectation(description: "first targeted write entered")
+    gate.onEnter = { entered.fulfill() }
+    hardware.blockNextScalarWrite(with: gate)
+    monitor.setScalar(0.3, onDeviceID: 11, expectedUID: "first", requestID: UUID())
+    await fulfillment(of: [entered], timeout: 5)
+    let request = UUID()
+    monitor.setScalar(0.9, onDeviceID: 22, expectedUID: "old", requestID: request)
+    hardware.setReading(snapshot(uid: "replacement"))
+    let completed = log.expectStatus("reused ID rejected") { $0.completedDeviceScalarRequestID == request }
+    gate.release()
+    await fulfillment(of: [completed], timeout: 5)
+    XCTAssertEqual(hardware.scalarWriteTargets, [11])
+    XCTAssertEqual(log.values.last?.error, .volumeFailed)
+    XCTAssertEqual(log.values.last?.defaultDeviceID, 11)
+  }
+
+  func testExplicitDeviceRejectsStaleUIDAndAcknowledgesOnlyTargetRequest() async throws {
+    let levels = AudioDeviceLevel(scalar: 0.2, canAdjust: true, muteState: .unmuted, canMute: true)
+    let initial = AudioInputReading(devices: [AudioInputDevice(id: 22, uid: "replacement", name: "USB", level: levels)],
+      defaultDeviceID: 22, deviceName: "USB", scalar: 0.2, canSetVolume: true, muteState: .unmuted, canSetMute: true)
+    let hardware = FakeAudioInputHardware(reading: initial)
+    let monitor = AudioInputMonitor(hardware: hardware)
+    let log = AudioInputStatusLog(monitor.updates)
+    defer { monitor.stop() }
+    let loaded = log.expectStatus("loaded") { !$0.devices.isEmpty }
+    monitor.setEnabled(true)
+    monitor.setDeviceListVisible(true)
+    await fulfillment(of: [loaded], timeout: 5)
+    let request = UUID()
+    let completed = log.expectStatus("stale request resolved") { $0.completedDeviceScalarRequestID == request }
+    monitor.setScalar(0.8, onDeviceID: 22, expectedUID: "removed", requestID: request)
+    await fulfillment(of: [completed], timeout: 5)
+    XCTAssertTrue(hardware.scalarWriteTargets.isEmpty)
+    XCTAssertNil(log.values.last?.completedScalarRequestID)
+    XCTAssertEqual(log.values.last?.scalar, 0.2)
+  }
+
   func testDefaultOffAndVisibleDoesNotEnumerateUntilEnabled() async throws {
     let hardware = FakeAudioInputHardware(reading: reading(defaultID: 11))
     let monitor = AudioInputMonitor(hardware: hardware)
@@ -1890,6 +2037,24 @@ private final class FakeAudioInputHardware: AudioInputHardware, @unchecked Senda
     lock.unlock()
   }
 
+  func setScalar(_ scalar: Double, on id: AudioDeviceID, expectedUID: String) throws {
+    try validateIdentity(id, expectedUID: expectedUID)
+    try setScalar(scalar, on: id)
+  }
+
+  func setMuted(_ muted: Bool, on id: AudioDeviceID, expectedUID: String) throws {
+    try validateIdentity(id, expectedUID: expectedUID)
+    try setMuted(muted, on: id)
+  }
+
+  private func validateIdentity(_ id: AudioDeviceID, expectedUID: String) throws {
+    lock.lock()
+    defer { lock.unlock() }
+    guard !expectedUID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      storedReading.devices?.contains(where: { $0.id == id && $0.uid == expectedUID }) == true
+    else { throw AudioInputHardwareError.unavailable }
+  }
+
   func setScalar(_ scalar: Double, on id: AudioDeviceID) throws {
     lock.lock()
     writtenScalars.append(scalar)
@@ -1907,6 +2072,7 @@ private final class FakeAudioInputHardware: AudioInputHardware, @unchecked Senda
     gate?.wait()
     if let error { throw error }
     lock.lock()
+    if !ignoresScalarWrites { updateDeviceLevel(id: id, scalar: scalar) }
     if !ignoresScalarWrites, storedReading.defaultDeviceID == id {
       let reading = storedReading
       storedReading = AudioInputReading(
@@ -1930,6 +2096,7 @@ private final class FakeAudioInputHardware: AudioInputHardware, @unchecked Senda
     lock.unlock()
     gate?.wait()
     lock.lock()
+    updateDeviceLevel(id: id, muted: muted)
     if storedReading.defaultDeviceID == id {
       let reading = storedReading
       storedReading = AudioInputReading(
@@ -1944,6 +2111,21 @@ private final class FakeAudioInputHardware: AudioInputHardware, @unchecked Senda
       )
     }
     lock.unlock()
+  }
+
+  /// Called under the fake hardware lock, matching a targeted HAL readback.
+  private func updateDeviceLevel(id: AudioDeviceID, scalar: Double? = nil, muted: Bool? = nil) {
+    let reading = storedReading
+    let devices = reading.devices?.map { device in
+      guard device.id == id, let level = device.level else { return device }
+      return AudioInputDevice(id: device.id, uid: device.uid, name: device.name,
+        level: AudioDeviceLevel(scalar: scalar ?? level.scalar, canAdjust: level.canAdjust,
+          muteState: muted.map { $0 ? .muted : .unmuted } ?? level.muteState, canMute: level.canMute))
+    }
+    storedReading = AudioInputReading(devices: devices, defaultDeviceID: reading.defaultDeviceID,
+      deviceName: reading.deviceName, scalar: reading.scalar, canSetVolume: reading.canSetVolume,
+      muteState: reading.muteState, canSetMute: reading.canSetMute,
+      isDefaultInputInUse: reading.isDefaultInputInUse)
   }
 
   func observe(_ notify: @escaping @Sendable (AudioInputEvent) -> Void) throws

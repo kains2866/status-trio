@@ -791,3 +791,10 @@
 "settings.subtopic.bluetooth.listeningMode" = "Mode d'écoute";
 "settings.subtopic.bluetooth.deviceBattery" = "Batterie de l'appareil";
 "settings.subtopic.bluetooth.deviceManagement" = "Gestion des appareils";
+
+"battery.details.uptime" = "Temps de fonctionnement";
+"battery.details.maxCapacity" = "Capacité maximale";
+"battery.details.batteryCondition" = "État de la batterie";
+"battery.details.condition.normal" = "Normal";
+"battery.details.condition.service" = "Entretien recommandé";
+"battery.details.highPower.unsupported" = "Non pris en charge";

@@ -889,6 +889,7 @@ final class VolumeMonitor: VolumeMonitoring, VolumeControlling {
     private var scheduledRefreshIncludesOutputDevices = false
     private var cachedOutputDevices: [AudioOutputDevice] = []
     private var outputDevicesCacheValid = false
+    private var nativeDeviceLevelReadbackRevision: UInt64 = 0
     private var detailsVisible = true
     private var readInFlight = false
     private var refreshPending = false
@@ -1131,6 +1132,49 @@ final class VolumeMonitor: VolumeMonitoring, VolumeControlling {
         }
     }
 
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        guard lifecycle != .stopped, scalar.isFinite,
+              let device = validatedTarget(deviceID, expectedUID: expectedUID) else { return }
+        if device.isCurrent, externalBackend == .betterDisplay || externalBackend == .directDDC {
+            guard latestStatus.canSetVolume,
+                  outputController?.isCurrentOutputDevice(deviceID, expectedUID: expectedUID) == true else { return }
+            setVolume(scalar)
+        } else {
+            guard device.isCurrent ? latestStatus.canSetVolume : device.level?.canAdjust == true else { return }
+            _ = outputController?.setVolume(scalar, forDeviceID: deviceID, expectedUID: expectedUID)
+            scheduleRefresh(includeOutputDevices: true)
+        }
+    }
+
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        guard lifecycle != .stopped,
+              let device = validatedTarget(deviceID, expectedUID: expectedUID) else { return }
+        if device.isCurrent, externalBackend == .betterDisplay {
+            guard latestStatus.canMute, latestStatus.muteState != .unknown,
+                  outputController?.isCurrentOutputDevice(deviceID, expectedUID: expectedUID) == true else { return }
+            toggleMute()
+        } else {
+            let canMute = device.isCurrent ? latestStatus.canMute : device.level?.canMute == true
+            let knownMute = device.isCurrent ? latestStatus.muteState != .unknown : device.level?.muteState != .unknown
+            guard canMute, knownMute else { return }
+            _ = outputController?.toggleMute(forDeviceID: deviceID, expectedUID: expectedUID)
+            scheduleRefresh(includeOutputDevices: true)
+        }
+    }
+
+    func flushPendingVolume(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {
+        guard lifecycle != .stopped,
+              validatedTarget(deviceID, expectedUID: expectedUID)?.isCurrent == true,
+              outputController?.isCurrentOutputDevice(deviceID, expectedUID: expectedUID) == true else { return }
+        flushPendingVolume()
+    }
+
+    private func validatedTarget(_ deviceID: AudioDeviceID, expectedUID: String?) -> AudioOutputDevice? {
+        guard let expectedUID, !expectedUID.isEmpty else { return nil }
+        return latestStatus.outputDevices.first { $0.id == deviceID && $0.uid == expectedUID }
+            ?? latestStatus.currentDevice.flatMap { $0.id == deviceID && $0.uid == expectedUID ? $0 : nil }
+    }
+
     func flushPendingVolume() {
         switch externalBackend {
         case .betterDisplay:
@@ -1276,6 +1320,10 @@ final class VolumeMonitor: VolumeMonitoring, VolumeControlling {
     }
 
     private func receive(_ result: AudioStatusReading) {
+        // `receive` is reached only after the read token/generation checks.
+        // A failed write may return exactly the same values; the accepted
+        // inventory itself still acknowledges the pending row gesture.
+        if result.outputDevices != nil { nativeDeviceLevelReadbackRevision &+= 1 }
         guard let reading = result.volume else {
             invalidateDDCSelection()
             invalidateBetterDisplaySelection()
@@ -1713,7 +1761,8 @@ final class VolumeMonitor: VolumeMonitoring, VolumeControlling {
         }
         latestStatus = status.replacingExternalVolumeTransitionGeneration(
             externalVolumeTransitionGeneration,
-            controlSource: source
+            controlSource: source,
+            nativeDeviceLevelReadbackRevision: nativeDeviceLevelReadbackRevision
         )
         continuation.yield(latestStatus)
     }

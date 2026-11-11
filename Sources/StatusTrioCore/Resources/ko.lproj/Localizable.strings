@@ -791,3 +791,10 @@
 "settings.subtopic.bluetooth.listeningMode" = "청취 모드";
 "settings.subtopic.bluetooth.deviceBattery" = "기기 배터리";
 "settings.subtopic.bluetooth.deviceManagement" = "기기 관리";
+
+"battery.details.uptime" = "시스템 가동 시간";
+"battery.details.maxCapacity" = "최대 용량";
+"battery.details.batteryCondition" = "배터리 상태";
+"battery.details.condition.normal" = "정상";
+"battery.details.condition.service" = "서비스 권장";
+"battery.details.highPower.unsupported" = "지원 안 됨";

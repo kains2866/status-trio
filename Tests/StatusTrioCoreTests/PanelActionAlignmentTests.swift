@@ -5,7 +5,7 @@ import XCTest
 
 @MainActor
 final class PanelActionAlignmentTests: XCTestCase {
-    func testVolumeControlsCenterMuteAndSettingsWithTheSliderRow() throws {
+    func testFallbackVolumeControlsCenterMuteAndSettingsWithTheSliderRow() throws {
         let state = try makeVolumeState()
         let probe = try render(
             VolumeControlsView(
@@ -57,16 +57,14 @@ final class PanelActionAlignmentTests: XCTestCase {
                 onOpenDisplaySettings: {}
             )
         )
-        let actions = probe.trailingGlyphRects(count: 2, minimumX: 200)
-        XCTAssertEqual(actions.count, 2, "brightness row must render its percentage and gear")
-        guard actions.count == 2 else { return }
-
-        let rowCenter = probe.controlRowCenterY(excluding: actions)
-        for (name, rect) in zip(["percentage", "gear"], actions) {
+        let slider = try XCTUnwrap(probe.subviewFrame(where: { $0 is NSSlider }))
+        let percentage = try XCTUnwrap(probe.trailingGlyphRects(count: 1, minimumX: 275).first)
+        let gear = CGRect(x: slider.minX - 26, y: slider.midY - 12, width: 18, height: 24)
+        for (name, rect) in [("percentage", percentage), ("gear", gear)] {
             let center = try XCTUnwrap(probe.glyphCenterY(in: rect))
             XCTAssertEqual(
                 center,
-                try XCTUnwrap(rowCenter),
+                slider.midY,
                 accuracy: 1,
                 "\(name) center must match the brightness row's rendered center"
             )
@@ -186,7 +184,7 @@ final class PanelActionAlignmentTests: XCTestCase {
         }
     }
 
-    func testAudioSlidersAlignAndBrightnessReservesNameColumn() throws {
+    func testFallbackAudioSlidersAlignAndBrightnessReservesNameColumn() throws {
         let volumeProbe = try render(
             VolumeControlsView(
                 state: try makeVolumeState(),
@@ -229,8 +227,35 @@ final class PanelActionAlignmentTests: XCTestCase {
         let micX = try XCTUnwrap(micProbe.subviewFrame(where: { $0 is NSSlider })?.minX)
         let brightnessX = try XCTUnwrap(brightnessProbe.subviewFrame(where: { $0 is NSSlider })?.minX)
         XCTAssertEqual(micX, volumeX, accuracy: 0.5, "audio sliders must share their leading slot")
-        XCTAssertEqual(brightnessX - volumeX, 78, accuracy: 1,
-                       "brightness reserves its single-line display name column")
+        XCTAssertEqual(brightnessX - volumeX, 112, accuracy: 1,
+                       "brightness reserves the same name and action columns as per-device audio")
+    }
+
+    func testPerDeviceAudioSlidersShareTheExternalNameAndMuteColumns() throws {
+        let volumeProbe = try render(VolumeControlsView(
+            state: try makeVolumeState(showsDeviceList: true), actions: StatusPanelActions(),
+            scrollTargets: PopoverScrollTargets(), onOpenSoundSettings: {}))
+        let inputProbe = try render(AudioInputControlsView(
+            state: try makeAudioInputState(showsDeviceList: true), actions: StatusPanelActions(),
+            scrollTargets: PopoverScrollTargets(), onOpenSoundSettings: {}))
+        let outputFrame = try XCTUnwrap(volumeProbe.subviewFrame(where: { $0 is NSSlider }))
+        let inputFrame = try XCTUnwrap(inputProbe.subviewFrame(where: { $0 is NSSlider }))
+        let displayProbe = try render(BrightnessControlsView(
+            state: BrightnessPanelState(rows: [BrightnessRowState(
+                id: "display", name: "Studio Display", isBuiltin: false, scalar: 0.5,
+                canAdjust: true, backend: .displayServices, source: .displayServices,
+                percentageText: "50%", accessibilityLabel: "Display brightness", unavailableText: nil
+            )]), actions: StatusPanelActions(), scrollTargets: PopoverScrollTargets(), onOpenDisplaySettings: {}))
+        let displayFrame = try XCTUnwrap(displayProbe.subviewFrame(where: { $0 is NSSlider }))
+        XCTAssertEqual(outputFrame.minX, inputFrame.minX, accuracy: 0.5)
+        XCTAssertEqual(outputFrame.width, inputFrame.width, accuracy: 0.5)
+        XCTAssertEqual(displayFrame.minX, outputFrame.minX, accuracy: 0.5,
+                       "display settings must occupy the audio mute column")
+        XCTAssertEqual(displayFrame.width, outputFrame.width, accuracy: 0.5,
+                       "all three device sliders must end at the same percentage column")
+        XCTAssertGreaterThan(outputFrame.minX, 120, "selection icon, external name, and independent mute precede the slider")
+        XCTAssertGreaterThan(outputFrame.width, 100)
+        XCTAssertEqual(outputFrame.height, 30, accuracy: 0.5)
     }
 
     private func render<V: View>(_ view: V) throws -> SummaryActionAlignmentProbe {
@@ -255,7 +280,7 @@ final class PanelActionAlignmentTests: XCTestCase {
         return try XCTUnwrap(SummaryActionAlignmentProbe(hosting))
     }
 
-    private func makeVolumeState() throws -> VolumePanelState {
+    private func makeVolumeState(showsDeviceList: Bool = false) throws -> VolumePanelState {
         let suite = "StatusTrioCoreTests.VolumeActionAlignment.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removeTestSuite(named: suite) }
@@ -265,13 +290,13 @@ final class PanelActionAlignmentTests: XCTestCase {
                 scalar: 0.4,
                 isMuted: false,
                 deviceName: "MacBook Pro Speakers",
-                outputDevices: [
+                outputDevices: showsDeviceList ? [
                     AudioOutputDevice(
                         id: 1,
                         name: "MacBook Pro Speakers",
                         isCurrent: true
                     )
-                ]
+                ] : []
             ),
             controllerAvailable: true,
             deviceList: AudioOutputListPreferences(visibleLimit: nil),

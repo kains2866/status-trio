@@ -791,3 +791,10 @@
 "settings.subtopic.bluetooth.listeningMode" = "Режим прослушивания";
 "settings.subtopic.bluetooth.deviceBattery" = "Батарея устройства";
 "settings.subtopic.bluetooth.deviceManagement" = "Управление устройствами";
+
+"battery.details.uptime" = "Время работы";
+"battery.details.maxCapacity" = "Максимальная ёмкость";
+"battery.details.batteryCondition" = "Состояние батареи";
+"battery.details.condition.normal" = "Норма";
+"battery.details.condition.service" = "Рекомендуется обслуживание";
+"battery.details.highPower.unsupported" = "Не поддерживается";

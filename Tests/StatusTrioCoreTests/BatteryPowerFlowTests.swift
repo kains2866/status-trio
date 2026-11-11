@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 import XCTest
 @testable import StatusTrioCore
 
@@ -41,6 +43,87 @@ final class BatteryPowerFlowTests: XCTestCase {
         XCTAssertTrue(source.contains("title: localization.string(.settingsBatteryEnergyRefreshInterval)"))
         XCTAssertTrue(source.contains(".settingsBatteryEnergyRefreshIntervalDescription"))
         XCTAssertTrue(source.contains("in: SettingsStore.highEnergyAppsRefreshIntervalRange"))
+    }
+
+    func testConnectedCardsKeepOriginalRoundedCorners() throws {
+        func metric(_ watts: Double, _ kind: BatteryPowerFlowState.Kind, _ label: String)
+            -> BatteryPowerFlowState.Metric {
+            .init(label: label, value: "\(Int(watts))W", watts: watts, kind: kind)
+        }
+        // A tinted source (discharging pack) so the card fill is visible against
+        // the white capture instead of the near-white silver adapter surface.
+        let state = BatteryPowerFlowState(
+            input: metric(100, .batterySource, "Battery"),
+            destinations: [metric(20, .system, "System")]
+        )
+        let view = BatteryPowerFlowView(state: state)
+            .frame(width: 330, height: 84)
+            .background(Color.white)
+            .environment(\.colorScheme, .light)
+        let hosting = NSHostingView(rootView: view)
+        hosting.appearance = NSAppearance(named: .aqua)
+        hosting.frame = NSRect(x: 0, y: 0, width: 330, height: 84)
+        hosting.layoutSubtreeIfNeeded()
+        let probe = try XCTUnwrap(SummaryActionAlignmentProbe(hosting))
+
+        func isInk(_ x: CGFloat, _ y: CGFloat) -> Bool {
+            let px = Int((x * probe.scale).rounded())
+            let py = Int((y * probe.scale).rounded())
+            guard let color = probe.bitmap.colorAt(x: px, y: py)?.usingColorSpace(.deviceRGB)
+            else { return false }
+            let luminance = 0.299 * color.redComponent
+                + 0.587 * color.greenComponent
+                + 0.114 * color.blueComponent
+            return luminance < 0.98
+        }
+
+        // #282: the 62x84 input card keeps its original rounded outline on all
+        // four corners. The ribbon instead runs a few points underneath the card,
+        // which is painted afterwards and covers the overlap. The two vertical
+        // extremes are sampled so the assertion does not depend on the bitmap's
+        // y origin.
+        XCTAssertFalse(isInk(60, 2), "top-right corner must stay rounded")
+        XCTAssertFalse(isInk(60, 82), "bottom-right corner must stay rounded")
+        XCTAssertFalse(isInk(2, 2), "top-left corner must stay rounded")
+        XCTAssertFalse(isInk(2, 82), "bottom-left corner must stay rounded")
+        XCTAssertTrue(isInk(60, 42), "the card's straight right edge still reaches the ribbon")
+        XCTAssertTrue(isInk(61, 6), "the ribbon must fill the exposed rounded-card seam")
+    }
+
+    func testRibbonMaskKeepsCardInteriorsClearAndRoundedSeamsExposed() {
+        let frame = CGRect(x: 0, y: 0, width: 62, height: 84)
+        let path = PowerFlowRibbonMask(cardFrames: [frame]).path(in: CGRect(x: 0, y: 0, width: 330, height: 84))
+        XCTAssertFalse(path.contains(CGPoint(x: 58, y: 42), eoFill: true),
+                       "a translucent card must not reveal an overlapping ribbon")
+        XCTAssertTrue(path.contains(CGPoint(x: 61, y: 6), eoFill: true),
+                      "the curved rim must meet the ribbon without a square gap")
+        XCTAssertTrue(path.contains(CGPoint(x: 100, y: 42), eoFill: true))
+        XCTAssertEqual(PowerFlowCardGeometry.ribbonStartX(inputCardRight: 62), 56)
+        XCTAssertEqual(PowerFlowCardGeometry.ribbonEndX(branchCardLeft: 236), 242)
+    }
+
+    func testDisconnectedCardsDoNotGrowRibbonsInEitherAppearance() throws {
+        for dark in [false, true] {
+            let state = BatteryPowerFlowState(
+                input: .init(label: "Battery", value: "100W", watts: 100, kind: .batterySource),
+                destinations: [.init(label: "System", value: "0W", watts: 0, kind: .system)])
+            let view = BatteryPowerFlowView(state: state)
+                .frame(width: 330, height: 84)
+                .background(dark ? Color.black : Color.white)
+                .environment(\.colorScheme, dark ? .dark : .light)
+            let hosting = NSHostingView(rootView: view)
+            hosting.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            hosting.frame = NSRect(x: 0, y: 0, width: 330, height: 84)
+            hosting.layoutSubtreeIfNeeded()
+            let probe = try XCTUnwrap(SummaryActionAlignmentProbe(hosting))
+            for point in [CGPoint(x: 61, y: 6), CGPoint(x: 100, y: 42)] {
+                let color = try XCTUnwrap(probe.bitmap.colorAt(
+                    x: Int(point.x * probe.scale), y: Int(point.y * probe.scale))?.usingColorSpace(.deviceRGB))
+                XCTAssertEqual(color.redComponent, dark ? 0 : 1, accuracy: 0.02)
+                XCTAssertEqual(color.greenComponent, dark ? 0 : 1, accuracy: 0.02)
+                XCTAssertEqual(color.blueComponent, dark ? 0 : 1, accuracy: 0.02)
+            }
+        }
     }
 
     func testActualInputNeverUsesAdapterRatingAndRejectsStaleOrDisconnectedTelemetry() {

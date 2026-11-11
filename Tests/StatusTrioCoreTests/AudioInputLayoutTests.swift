@@ -14,7 +14,16 @@ final class AudioInputLayoutTests: XCTestCase {
         }
     }
 
-    private func size(busy: Bool, language: AppLanguage) throws -> NSSize {
+    func testMicrophoneUsageDoesNotAddABadgeOrChangeTheRowHeight() throws {
+        for language in [AppLanguage.english, .simplifiedChinese, .german, .arabic] {
+            let idle = try size(busy: false, language: language, inUse: false)
+            let inUse = try size(busy: false, language: language, inUse: true)
+            XCTAssertEqual(idle.width, inUse.width, accuracy: 0.1, language.rawValue)
+            XCTAssertEqual(idle.height, inUse.height, accuracy: 0.1, language.rawValue)
+        }
+    }
+
+    private func size(busy: Bool, language: AppLanguage, inUse: Bool? = nil) throws -> NSSize {
         let suite = "AudioInputLayoutTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removeTestSuite(named: suite) }
@@ -30,7 +39,8 @@ final class AudioInputLayoutTests: XCTestCase {
             canSetMute: true,
             isRefreshing: false,
             isBusy: busy,
-            error: nil
+            error: nil,
+            isDefaultInputInUse: inUse
         )
         let host = NSHostingView(rootView:
             AudioInputControlsView(

@@ -1,7 +1,7 @@
 {
   "app_name": "Status Trio",
   "bundle_id": "com.lingsmbp.StatusTrio",
-  "github_repo": "lingyired/status-trio",
+  "github_repo": "kains2866/status-trio",
   "git_branch": "main",
   "min_system_version": "13.0",
   "bundle_name": "Status Trio.app",

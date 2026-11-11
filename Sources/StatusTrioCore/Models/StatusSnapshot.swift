@@ -122,6 +122,8 @@ struct VolumeStatus: Equatable, Sendable {
     let canMute: Bool
     let controlSource: VolumeControlSource
     let externalVolumeTransitionGeneration: UInt64
+    /// Advances only when a fresh native device inventory is accepted.
+    let nativeDeviceLevelReadbackRevision: UInt64
 
     init(
         scalar: Double?,
@@ -133,7 +135,8 @@ struct VolumeStatus: Equatable, Sendable {
         canMute: Bool? = nil,
         muteState: VolumeMuteState? = nil,
         externalVolumeTransitionGeneration: UInt64 = 0,
-        controlSource: VolumeControlSource = .unavailable
+        controlSource: VolumeControlSource = .unavailable,
+        nativeDeviceLevelReadbackRevision: UInt64 = 0
     ) {
         self.scalar = scalar
         self.isMuted = isMuted
@@ -144,6 +147,7 @@ struct VolumeStatus: Equatable, Sendable {
         self.canSetVolume = canSetVolume ?? (scalar != nil)
         self.canMute = canMute ?? (scalar != nil)
         self.controlSource = controlSource
+        self.nativeDeviceLevelReadbackRevision = nativeDeviceLevelReadbackRevision
         self.externalVolumeTransitionGeneration =
             externalVolumeTransitionGeneration
     }
@@ -177,11 +181,13 @@ extension VolumeStatus {
             && canMute == other.canMute
             && controlSource == other.controlSource
             && externalVolumeTransitionGeneration == other.externalVolumeTransitionGeneration
+            && nativeDeviceLevelReadbackRevision == other.nativeDeviceLevelReadbackRevision
     }
 
     func replacingExternalVolumeTransitionGeneration(
         _ generation: UInt64,
-        controlSource: VolumeControlSource? = nil
+        controlSource: VolumeControlSource? = nil,
+        nativeDeviceLevelReadbackRevision: UInt64? = nil
     ) -> VolumeStatus {
         VolumeStatus(
             scalar: scalar,
@@ -193,7 +199,8 @@ extension VolumeStatus {
             canMute: canMute,
             muteState: muteState,
             externalVolumeTransitionGeneration: generation,
-            controlSource: controlSource ?? self.controlSource
+            controlSource: controlSource ?? self.controlSource,
+            nativeDeviceLevelReadbackRevision: nativeDeviceLevelReadbackRevision ?? self.nativeDeviceLevelReadbackRevision
         )
     }
 }

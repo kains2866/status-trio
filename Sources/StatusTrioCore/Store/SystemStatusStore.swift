@@ -655,6 +655,37 @@ final class SystemStatusStore: ObservableObject {
 
     func finishVolumeAdjustment() { volumeController?.flushPendingVolume() }
 
+    /// Per-device rows never optimistically replace the selected route's scalar.
+    /// Their draft is local; the monitor publishes the identity-bound readback.
+    func setVolume(_ scalar: Double, forOutputDevice device: AudioOutputDevice) {
+        guard !hasStopped, scalar.isFinite, let live = liveOutputDevice(matching: device) else { return }
+        let isCurrent = live.isCurrent || liveVolume.currentDevice?.id == live.id
+        guard isCurrent ? liveVolume.canSetVolume : live.level?.canAdjust == true else { return }
+        volumeController?.setVolume(min(1, max(0, scalar)), forDeviceID: live.id, expectedUID: live.uid)
+    }
+
+    func finishVolumeAdjustment(forOutputDevice device: AudioOutputDevice) {
+        guard !hasStopped, let live = liveOutputDevice(matching: device) else { return }
+        volumeController?.flushPendingVolume(forDeviceID: live.id, expectedUID: live.uid)
+    }
+
+    func toggleMute(forOutputDevice device: AudioOutputDevice) {
+        guard !hasStopped, let live = liveOutputDevice(matching: device) else { return }
+        let isCurrent = live.isCurrent || liveVolume.currentDevice?.id == live.id
+        guard isCurrent ? liveVolume.canMute : live.level?.canMute == true else { return }
+        volumeController?.toggleMute(forDeviceID: live.id, expectedUID: live.uid)
+    }
+
+    private func liveOutputDevice(matching device: AudioOutputDevice) -> AudioOutputDevice? {
+        guard let uid = device.uid,
+              !uid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let matches: (AudioOutputDevice) -> Bool = {
+            $0.id == device.id && $0.uid == uid
+        }
+        return liveVolume.outputDevices.first(where: matches)
+            ?? liveVolume.currentDevice.flatMap { matches($0) ? $0 : nil }
+    }
+
     func toggleMute() {
         guard !hasStopped,
               volumeController != nil,
@@ -1599,6 +1630,32 @@ final class SystemStatusStore: ObservableObject {
         inputMonitor?.toggleMute()
     }
 
+    func setInputScalar(_ value: Double, forInputDevice device: AudioInputDevice, requestID: UUID) {
+        guard !hasStopped, value.isFinite,
+              let live = liveInputDevice(matching: device) else { return }
+        let canAdjust = live.level?.canAdjust ?? (liveInput.defaultDeviceID == live.id && liveInput.canSetVolume)
+        guard canAdjust else { return }
+        let targetID = live.id
+        let targetUID = live.uid
+        inputMonitor?.setScalar(min(1, max(0, value)), onDeviceID: targetID,
+                                expectedUID: targetUID, requestID: requestID)
+    }
+
+    func toggleInputMute(forInputDevice device: AudioInputDevice) {
+        guard !hasStopped, let live = liveInputDevice(matching: device) else { return }
+        let canMute = live.level?.canMute ?? (liveInput.defaultDeviceID == live.id && liveInput.canSetMute)
+        guard canMute else { return }
+        let targetID = live.id
+        let targetUID = live.uid
+        inputMonitor?.toggleMute(onDeviceID: targetID, expectedUID: targetUID)
+    }
+
+    private func liveInputDevice(matching device: AudioInputDevice) -> AudioInputDevice? {
+        guard let uid = device.uid,
+              !uid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return liveInput.devices.first { $0.id == device.id && $0.uid == uid }
+    }
+
     private func setInputEnabled(_ enabled: Bool) {
         guard !hasStopped else { return }
         inputSettingEnabled = enabled
@@ -1900,7 +1957,8 @@ private extension VolumeStatus {
             muteState: muteState,
             externalVolumeTransitionGeneration:
                 externalVolumeTransitionGeneration,
-            controlSource: controlSource
+            controlSource: controlSource,
+            nativeDeviceLevelReadbackRevision: nativeDeviceLevelReadbackRevision
         )
     }
 
@@ -1915,7 +1973,8 @@ private extension VolumeStatus {
             muteState: isMuted ? .muted : .unmuted,
             externalVolumeTransitionGeneration:
                 externalVolumeTransitionGeneration,
-            controlSource: controlSource
+            controlSource: controlSource,
+            nativeDeviceLevelReadbackRevision: nativeDeviceLevelReadbackRevision
         )
     }
 }

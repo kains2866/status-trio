@@ -3,6 +3,11 @@ import Foundation
 struct PanelAudioDeviceID: Equatable, Hashable, Sendable {
     let id: UInt32
     let uid: String?
+
+    var hasStableUID: Bool {
+        guard let uid else { return false }
+        return !uid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 }
 
 struct PanelAudioDeviceRow: Equatable, Identifiable, Sendable {
@@ -17,6 +22,10 @@ struct PanelAudioDeviceRow: Equatable, Identifiable, Sendable {
     var listeningModeAddress: String? = nil
     var listeningMode: BluetoothListeningModePresentation? = nil
     var isPreview: Bool = false
+    var level: AudioDeviceLevel? = nil
+    var completedLevelRequestID: UUID? = nil
+    var interactionIdentity: VolumeControlInteractionIdentity? = nil
+    var nativeDeviceLevelReadbackRevision: UInt64 = 0
 
     var id: PanelAudioDeviceID { key }
 }
@@ -26,7 +35,7 @@ struct AudioOutputListPreferences: Equatable, Sendable {
     let hiddenUIDs: Set<String>
     let visibleLimit: Int?
 
-    init(order: [String] = [], hiddenUIDs: Set<String> = [], visibleLimit: Int? = 5) {
+    init(order: [String] = [], hiddenUIDs: Set<String> = [], visibleLimit: Int? = 3) {
         self.order = order
         self.hiddenUIDs = hiddenUIDs
         self.visibleLimit = visibleLimit.map { max(0, $0) }

@@ -99,7 +99,7 @@ struct AudioInputControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            controls
+            if !state.showsDeviceList { controls }
             deviceList
 
             if let error = state.errorText {
@@ -240,8 +240,15 @@ struct AudioInputControlsView: View {
     @ViewBuilder
     private var deviceList: some View {
         if state.showsDeviceList {
-            Divider()
-                .padding(.top, 2)
+            HStack {
+                Text(localization.string(.audioInputTitle)).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if state.isBusy { ProgressView().controlSize(.small) }
+                Button(action: onOpenSoundSettings) { PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary) }
+                    .buttonStyle(.plain)
+                    .help(localization.string(.audioInputOpenSettings))
+                    .accessibilityLabel(localization.string(.audioInputOpenSettings))
+            }
 
             VStack(spacing: 2) {
                 inputRows(state.visibleRows(expanded: false))
@@ -249,7 +256,7 @@ struct AudioInputControlsView: View {
                 if state.hasHiddenRows {
                     CascadingSubmenuButton(title: state.expandLabel, isPresented: $isDeviceListExpanded) {
                         VStack(spacing: 2) {
-                            inputRows(Array(state.rows.dropFirst(state.visibleRows(expanded: false).count)))
+                            inputRows(state.overflowRows)
                         }
                     }
                 }
@@ -265,41 +272,13 @@ struct AudioInputControlsView: View {
 
     private func inputRows(_ rows: [PanelAudioDeviceRow]) -> some View {
         ForEach(rows) { row in
-            Button {
-                guard !row.selected else { return }
-                actions.selectInput(row.key)
-            } label: {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(row.selected ? Color.accentColor : Color.secondary.opacity(0.14))
-                        Image(systemName: row.selected ? "mic.fill" : "mic")
-                            .foregroundStyle(row.selected ? Color.white : Color.secondary)
-                    }
-                    .frame(width: 24, height: 24)
-                    .accessibilityHidden(true)
-
-                    Text(row.name)
-                        .font(.body.weight(row.selected ? .semibold : .regular))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if row.selected, let usageText = state.usageText {
-                        Text(usageText)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-                .padding(.vertical, 3)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!row.enabled)
-            .help(row.helpText)
-            .accessibilityLabel(row.accessibilityLabel)
-            .accessibilityValue(row.selected ? state.usageText ?? "" : "")
-            .accessibilityHint(row.selected ? "" : row.helpText)
+            AudioDeviceLevelRow(
+                state: row, isInput: true, sliderLabel: state.sliderLabel,
+                hasError: state.errorText != nil, scrollTargets: scrollTargets,
+                onSelect: { actions.selectInput(row.key) },
+                onSetLevel: { scalar, key, request in actions.setInputLevel(scalar, for: key, requestID: request) },
+                onToggleMute: { actions.toggleInputMute(for: $0) }
+            )
         }
     }
 

@@ -746,7 +746,7 @@
 "settings.tab.brightness" = "亮度";
 "settings.brightness.group.title" = "已連接的顯示器";
 "settings.brightness.empty" = "沒有已連接的顯示器。";
-"settings.brightness.builtIn" = "內建";
+"settings.brightness.builtIn" = "內建顯示器";
 "settings.brightness.internalBackend.description" = "內建顯示器的亮度使用 DisplayServices 後端。";
 "settings.brightness.externalBackend.description" = "選擇 Status Trio 控制此顯示器亮度的方式。";
 "settings.brightness.backend.betterDisplayNeeded" = "BetterDisplay 未執行，或未開啟通知整合。";
@@ -791,3 +791,10 @@
 "settings.subtopic.bluetooth.listeningMode" = "聆聽模式";
 "settings.subtopic.bluetooth.deviceBattery" = "裝置電量";
 "settings.subtopic.bluetooth.deviceManagement" = "裝置管理";
+
+"battery.details.uptime" = "系統執行時間";
+"battery.details.maxCapacity" = "最大容量";
+"battery.details.batteryCondition" = "電池狀態";
+"battery.details.condition.normal" = "正常";
+"battery.details.condition.service" = "建議維修";
+"battery.details.highPower.unsupported" = "不支援";

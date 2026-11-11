@@ -6,6 +6,14 @@ struct AudioInputDevice: Identifiable, Equatable, Sendable {
   let id: AudioDeviceID
   let uid: String?
   let name: String?
+  let level: AudioDeviceLevel?
+
+  init(id: AudioDeviceID, uid: String?, name: String?, level: AudioDeviceLevel? = nil) {
+    self.id = id
+    self.uid = uid
+    self.name = name
+    self.level = level
+  }
 }
 
 enum AudioInputMuteState: Equatable, Sendable {
@@ -69,6 +77,11 @@ struct AudioInputUsageReading: Equatable, Sendable {
   let isDefaultInputInUse: Bool?
 }
 
+struct AudioInputDeviceScalarCompletion: Equatable, Sendable {
+  let uid: String?
+  let requestID: UUID
+}
+
 struct AudioInputStatus: Equatable, Sendable {
   var devices: [AudioInputDevice]
   var defaultDeviceID: AudioDeviceID?
@@ -85,6 +98,11 @@ struct AudioInputStatus: Equatable, Sendable {
   var completedScalarRequestID: UUID? = nil
   /// Scalar writes are serialized and can accept further input without dimming controls.
   var isAdjustingScalar = false
+  /// Explicit-device acknowledgements never resolve the default-route draft.
+  var completedDeviceScalarRequestID: UUID? = nil
+  var completedDeviceScalarDeviceID: AudioDeviceID? = nil
+  var completedDeviceScalarDeviceUID: String? = nil
+  var completedDeviceScalarRequests: [AudioDeviceID: AudioInputDeviceScalarCompletion] = [:]
 
   static let empty = Self(
     devices: [],

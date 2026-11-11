@@ -944,6 +944,10 @@ private final class IntegrationBetterDisplayClient: BetterDisplayRequesting {
 
 @MainActor
 private final class RecordingExternalAudioOutputController: AudioOutputControlling {
+    func isCurrentOutputDevice(_ deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+
     private(set) var volumeValues: [Double] = []
     private(set) var muteValues: [Void] = []
 

@@ -391,6 +391,10 @@ private final class MutableAudioStatusReader: AudioStatusReadingProviding {
 
 @MainActor
 private final class CapabilityFakeVolumeMonitor: VolumeMonitoring, VolumeControlling {
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {}
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {}
+    func flushPendingVolume(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) {}
+
     let updates: AsyncStream<VolumeStatus>
     private let continuation: AsyncStream<VolumeStatus>.Continuation
     private(set) var toggleMuteCount = 0
@@ -410,6 +414,10 @@ private final class CapabilityFakeVolumeMonitor: VolumeMonitoring, VolumeControl
 
 @MainActor
 private final class MuteCommandRecorder: AudioOutputControlling {
+    func isCurrentOutputDevice(_ deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+    func setVolume(_ scalar: Double, forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+    func toggleMute(forDeviceID deviceID: AudioDeviceID, expectedUID: String?) -> Bool { false }
+
     private(set) var muteCount = 0
     func setVolume(_ scalar: Double) -> Bool { true }
     func toggleMute() -> Bool { muteCount += 1; return true }

@@ -6,6 +6,7 @@ struct AudioOutputDevice: Identifiable, Hashable, Sendable {
     let uid: String?
     let isCurrent: Bool
     let volume: Double?
+    let level: AudioDeviceLevel?
     /// The hardware family of the device, read from
     /// `kAudioDevicePropertyTransportType`.
     let transport: AudioOutputTransport?
@@ -28,13 +29,15 @@ struct AudioOutputDevice: Identifiable, Hashable, Sendable {
         transport: AudioOutputTransport? = nil,
         dataSource: AudioOutputDataSource? = nil,
         iconURL: URL? = nil,
-        modelUID: String? = nil
+        modelUID: String? = nil,
+        level: AudioDeviceLevel? = nil
     ) {
         self.id = id
         self.name = name
         self.uid = uid
         self.isCurrent = isCurrent
-        self.volume = volume
+        self.volume = level == nil ? volume : level?.scalar
+        self.level = level
         self.transport = transport
         self.dataSource = dataSource
         self.iconURL = iconURL
@@ -47,6 +50,7 @@ struct AudioOutputDevice: Identifiable, Hashable, Sendable {
 
     func replacingVolume(_ volume: Double?) -> AudioOutputDevice {
         AudioOutputDevice(id: id, name: name, uid: uid, isCurrent: isCurrent, volume: volume,
-                          transport: transport, dataSource: dataSource, iconURL: iconURL, modelUID: modelUID)
+                          transport: transport, dataSource: dataSource, iconURL: iconURL, modelUID: modelUID,
+                          level: level.map { AudioDeviceLevel(scalar: volume, canAdjust: $0.canAdjust, muteState: $0.muteState, canMute: $0.canMute) })
     }
 }

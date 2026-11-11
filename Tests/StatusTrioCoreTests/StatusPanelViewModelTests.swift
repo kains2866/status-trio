@@ -1085,6 +1085,8 @@ final class PanelInputMonitor: AudioInputMonitoring {
     func recover() {}
     func select(_ id: AudioDeviceID) {}
     func setScalar(_ value: Double, requestID: UUID) {}
+    func setScalar(_ value: Double, onDeviceID: AudioDeviceID, expectedUID: String?, requestID: UUID) {}
+    func toggleMute(onDeviceID: AudioDeviceID, expectedUID: String?) {}
     func toggleMute() {}
     func stop() {}
     func send(_ status: AudioInputStatus) { pair.continuation.yield(status) }

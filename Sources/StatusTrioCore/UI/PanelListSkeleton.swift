@@ -1,13 +1,13 @@
 import SwiftUI
 
 /// Height policy for a panel volume-output row, mirroring the layout in
-/// `OutputDeviceRow`: a 24-point icon column with 3 points of vertical padding,
+/// `OutputDeviceRow`: a 30-point native slider with 3 points of vertical padding,
 /// plus the listening-mode control's own line when one is drawn. Kept next to
 /// the skeleton so the placeholder row and the real row cannot drift apart.
 enum VolumeDeviceRowMetrics {
-    /// The row without a listening-mode control: the icon column plus the row's
+    /// The row without a listening-mode control: the native slider plus the row's
     /// own top and bottom padding.
-    static let singleLineHeight: CGFloat = 30
+    static let singleLineHeight: CGFloat = 36
 
     /// The extra height a controllable listening-mode control adds under the
     /// name: the parent stack's 2-point gap plus the capsule's line and padding.

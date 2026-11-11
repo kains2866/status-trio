@@ -15,7 +15,7 @@ struct AudioInputListPreferences: Equatable, Sendable {
     let hiddenUIDs: Set<String>
     let visibleLimit: Int?
 
-    init(order: [String] = [], hiddenUIDs: Set<String> = [], visibleLimit: Int? = 5) {
+    init(order: [String] = [], hiddenUIDs: Set<String> = [], visibleLimit: Int? = 3) {
         self.order = order
         self.hiddenUIDs = hiddenUIDs
         self.visibleLimit = visibleLimit.map { max(0, $0) }
@@ -50,14 +50,15 @@ struct AudioInputPanelState: Equatable, Sendable {
     let completedScalarRequestID: UUID?
 
     var hasHiddenRows: Bool {
-        OutputDeviceListPresentation.canToggleExpansion(for: rows, limit: visibleLimit)
+        !overflowRows.isEmpty
+    }
+
+    var overflowRows: [PanelAudioDeviceRow] {
+        Array(rows.dropFirst(visibleRows(expanded: false).count))
     }
 
     func visibleRows(expanded: Bool) -> [PanelAudioDeviceRow] {
-        OutputDeviceListPresentation.visibleDevices(
-            from: rows,
-            limit: visibleLimit,
-            isExpanded: expanded
-        )
+        guard !expanded, let visibleLimit else { return rows }
+        return Array(rows.prefix(max(0, visibleLimit)))
     }
 }
