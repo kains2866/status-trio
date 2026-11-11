@@ -50,14 +50,15 @@ struct AudioInputPanelState: Equatable, Sendable {
     let completedScalarRequestID: UUID?
 
     var hasHiddenRows: Bool {
-        OutputDeviceListPresentation.canToggleExpansion(for: rows, limit: visibleLimit)
+        !overflowRows.isEmpty
+    }
+
+    var overflowRows: [PanelAudioDeviceRow] {
+        Array(rows.dropFirst(visibleRows(expanded: false).count))
     }
 
     func visibleRows(expanded: Bool) -> [PanelAudioDeviceRow] {
-        OutputDeviceListPresentation.visibleDevices(
-            from: rows,
-            limit: visibleLimit,
-            isExpanded: expanded
-        )
+        guard !expanded, let visibleLimit else { return rows }
+        return Array(rows.prefix(max(0, visibleLimit)))
     }
 }

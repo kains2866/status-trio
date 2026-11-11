@@ -75,16 +75,16 @@ final class AudioPanelMapperTests: XCTestCase {
         let localization = makeLocalization(.english)
         let first = AudioInputDevice(id: AudioDeviceID(1), uid: "first", name: "Studio Mic")
         let second = AudioInputDevice(id: AudioDeviceID(2), uid: "second", name: "Studio Mic")
-        let status = makeInputStatus(devices: [first, second], defaultDeviceID: second.id)
+        for currentID in [first.id, second.id] {
+            let status = makeInputStatus(devices: [first, second], defaultDeviceID: currentID)
+            let state = AudioPanelMapper.input(status, localization: localization)
 
-        let state = AudioPanelMapper.input(status, localization: localization)
-
-        XCTAssertEqual(state.rows.map(\.key.id), [2, 1])
-        XCTAssertEqual(Set(state.rows.map(\.key)).count, 2)
-        XCTAssertEqual(state.rows.map(\.name), ["Studio Mic", "Studio Mic"])
-        XCTAssertTrue(state.rows.allSatisfy { $0.accessibilityLabel.contains("Studio Mic") })
-        XCTAssertTrue(state.rows[0].selected)
-        XCTAssertFalse(state.rows[1].selected)
+            XCTAssertEqual(state.rows.map(\.key.id), [1, 2])
+            XCTAssertEqual(Set(state.rows.map(\.key)).count, 2)
+            XCTAssertEqual(state.rows.map(\.name), ["Studio Mic", "Studio Mic"])
+            XCTAssertTrue(state.rows.allSatisfy { $0.accessibilityLabel.contains("Studio Mic") })
+            XCTAssertEqual(state.rows.filter(\.selected).map(\.key.id), [currentID])
+        }
     }
 
     func testInputKeepsBusyAndCapabilitiesAsSeparateControlRules() {
@@ -409,8 +409,8 @@ final class AudioPanelMapperTests: XCTestCase {
         let unordered = AudioPanelMapper.input(status, localization: localization)
         XCTAssertEqual(
             unordered.rows.map(\.key.uid),
-            ["built-in", "airpods", "camera", "usb"],
-            "without a saved order the current input leads, then names sort"
+            ["airpods", "camera", "built-in", "usb"],
+            "without a saved order names sort independently of the current input"
         )
 
         let state = AudioPanelMapper.input(
@@ -424,7 +424,7 @@ final class AudioPanelMapperTests: XCTestCase {
 
         // built-in is hidden but stays as the current input; camera is not in
         // the saved order, so it follows the ordered devices.
-        XCTAssertEqual(state.rows.map(\.key.uid), ["usb", "built-in", "camera"])
+        XCTAssertEqual(state.rows.map(\.key.uid), ["usb", "camera", "built-in"])
         XCTAssertEqual(state.rows.filter(\.selected).map(\.key.uid), ["built-in"])
     }
 
@@ -514,6 +514,35 @@ final class AudioPanelMapperTests: XCTestCase {
             [2, 1, 3],
             "the Settings list follows the saved order whether or not a device is hidden"
         )
+    }
+
+    func testInputSwitchKeepsTheOrderAndCollapsedRowsStable() {
+        let localization = makeLocalization(.english)
+        let devices = (1...4).map {
+            AudioInputDevice(id: AudioDeviceID($0), uid: "mic-\($0)", name: "Mic \($0)")
+        }
+
+        for order in [[], ["mic-4", "mic-1"]] {
+            let expected = order.isEmpty
+                ? ["mic-1", "mic-2", "mic-3", "mic-4"]
+                : ["mic-4", "mic-1", "mic-2", "mic-3"]
+            for limit: Int? in [0, 3, nil] {
+                for device in devices {
+                    let state = AudioPanelMapper.input(
+                        makeInputStatus(devices: devices, defaultDeviceID: device.id),
+                        deviceList: AudioInputListPreferences(order: order, visibleLimit: limit),
+                        localization: localization
+                    )
+
+                    XCTAssertEqual(state.rows.map(\.key.uid), expected)
+                    XCTAssertEqual(state.rows.filter(\.selected).map(\.key.uid), [device.uid])
+                    XCTAssertEqual(state.visibleRows(expanded: false).map(\.key.uid), Array(expected.prefix(limit ?? expected.count)))
+                    XCTAssertEqual(state.overflowRows.map(\.key.uid), Array(expected.dropFirst(limit ?? expected.count)))
+                    XCTAssertEqual(state.visibleRows(expanded: true).map(\.key.uid), expected)
+                    XCTAssertEqual(state.hasHiddenRows, limit.map { $0 < devices.count } ?? false)
+                }
+            }
+        }
     }
 
     private func makeLocalization(_ language: AppLanguage) -> Localization {

@@ -401,15 +401,11 @@ struct AudioInputPresentation {
 
     static func ordered(
         _ devices: [AudioInputDevice],
-        currentID: AudioDeviceID?,
+        currentID _: AudioDeviceID?,
         locale: Locale,
         unknownName: String
     ) -> [AudioInputDevice] {
         devices.sorted { lhs, rhs in
-            let lhsIsCurrent = lhs.id == currentID
-            let rhsIsCurrent = rhs.id == currentID
-            if lhsIsCurrent != rhsIsCurrent { return lhsIsCurrent }
-
             let comparison = displayName(for: lhs, unknownName: unknownName)
                 .compare(
                     displayName(for: rhs, unknownName: unknownName),
@@ -422,8 +418,7 @@ struct AudioInputPresentation {
         }
     }
 
-    /// The saved order first. Devices it doesn't name follow in the default
-    /// order: the current input, then by name.
+    /// The saved order first, then by name. Selecting an input never moves it.
     static func ordered(
         _ devices: [AudioInputDevice],
         currentID: AudioDeviceID?,

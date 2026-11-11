@@ -256,7 +256,7 @@ struct AudioInputControlsView: View {
                 if state.hasHiddenRows {
                     CascadingSubmenuButton(title: state.expandLabel, isPresented: $isDeviceListExpanded) {
                         VStack(spacing: 2) {
-                            inputRows(OutputDeviceListPresentation.overflowRows(from: state.rows, limit: state.visibleLimit))
+                            inputRows(state.overflowRows)
                         }
                     }
                 }
@@ -272,18 +272,13 @@ struct AudioInputControlsView: View {
 
     private func inputRows(_ rows: [PanelAudioDeviceRow]) -> some View {
         ForEach(rows) { row in
-            VStack(alignment: .leading, spacing: 0) {
-                AudioDeviceLevelRow(
-                    state: row, isInput: true, sliderLabel: state.sliderLabel,
-                    hasError: state.errorText != nil, scrollTargets: scrollTargets,
-                    onSelect: { actions.selectInput(row.key) },
-                    onSetLevel: { scalar, key, request in actions.setInputLevel(scalar, for: key, requestID: request) },
-                    onToggleMute: { actions.toggleInputMute(for: $0) }
-                )
-                if row.selected, let usageText = state.usageText {
-                    Text(usageText).font(.caption).foregroundStyle(.orange).padding(.leading, 30)
-                }
-            }
+            AudioDeviceLevelRow(
+                state: row, isInput: true, sliderLabel: state.sliderLabel,
+                hasError: state.errorText != nil, scrollTargets: scrollTargets,
+                onSelect: { actions.selectInput(row.key) },
+                onSetLevel: { scalar, key, request in actions.setInputLevel(scalar, for: key, requestID: request) },
+                onToggleMute: { actions.toggleInputMute(for: $0) }
+            )
         }
     }
 
