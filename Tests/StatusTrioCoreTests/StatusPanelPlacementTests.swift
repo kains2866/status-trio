@@ -3,6 +3,23 @@ import Testing
 @testable import StatusTrioCore
 
 struct StatusPanelPlacementTests {
+    @Test @MainActor func sideDockRootResizeUsesFullHeightAndClampsWhileSubmenuKeepsItsTop() {
+        let bounds: ClosedRange<CGFloat> = 8...867
+        let frame = NSRect(x: 80, y: 790, width: 330, height: 50)
+        #expect(AnchoredStatusPanel.sideResizeHeightBudget(frame: frame, lower: 8, upper: 867, alignsTop: false, isRootSidePanel: true) == 859)
+        let rootY = AnchoredStatusPanel.sideResizeOriginY(frame: frame, height: 700, alignsTop: false, rootSideBounds: bounds)
+        #expect(rootY == 167)
+        #expect(rootY + 700 == bounds.upperBound)
+        #expect(AnchoredStatusPanel.sideResizeOriginY(frame: frame, height: 300, alignsTop: true, rootSideBounds: nil) == frame.maxY - 300)
+        #expect(AnchoredStatusPanel.sideResizeHeightBudget(frame: frame, lower: 8, upper: 867, alignsTop: true, isRootSidePanel: false) == frame.maxY - 8)
+    }
+
+    @Test func sideDockResizeClampsAtBottomAndKeepsCenteredWhenSpaceAllows() {
+        let bounds: ClosedRange<CGFloat> = 8...867
+        #expect(StatusPanelPlacement.clampedVerticalOrigin(center: 15, height: 500, bounds: bounds) == 8)
+        #expect(StatusPanelPlacement.clampedVerticalOrigin(center: 437, height: 200, bounds: bounds) == 337)
+        #expect(StatusPanelPlacement.verticalTravelBounds(visibleFrame: NSRect(x: 0, y: 0, width: 1440, height: 875), dockInset: DockReveal.noInset) == bounds)
+    }
     private let screen = StatusPanelScreen(
         frame: NSRect(x: 0, y: 0, width: 1440, height: 900),
         visibleFrame: NSRect(x: 0, y: 0, width: 1440, height: 875)

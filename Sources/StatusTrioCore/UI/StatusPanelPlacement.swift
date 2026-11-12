@@ -38,6 +38,15 @@ struct StatusPanelScreen: Equatable {
 }
 
 enum StatusPanelPlacement {
+    static func verticalTravelBounds(visibleFrame: NSRect, dockInset: NSEdgeInsets) -> ClosedRange<CGFloat> {
+        let lower = visibleFrame.minY + max(0, dockInset.bottom) + edgeMargin
+        let upper = visibleFrame.maxY - max(0, dockInset.top) - edgeMargin
+        return lower...max(lower, upper)
+    }
+
+    static func clampedVerticalOrigin(center: CGFloat, height: CGFloat, bounds: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(center - height / 2, bounds.lowerBound), max(bounds.lowerBound, bounds.upperBound - height))
+    }
     /// The visual gap between the anchor and the panel. `NSPopover` spent this
     /// distance on its arrow; with the arrow gone the panel sits close to the
     /// menu bar / Dock without touching it.

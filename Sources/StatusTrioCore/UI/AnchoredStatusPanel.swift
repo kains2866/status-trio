@@ -74,6 +74,7 @@ final class AnchoredStatusPanel: NSPanel {
     private var anchorRectInView: NSRect = .zero
     private var preferredEdge: NSRectEdge = .minY
     private var alignsTop = false
+    private var rootSideResizeBounds: ClosedRange<CGFloat>?
     /// Each level retains its own coordinator in SwiftUI; the panel links lifecycle.
     weak var submenuCoordinator: CascadingSubmenuCoordinator?
     var statusItemFrameForDismissal: (() -> NSRect?)?
@@ -418,7 +419,8 @@ final class AnchoredStatusPanel: NSPanel {
             case .maxY: y = locked.minY
             case .minX, .maxX:
                 y = Self.sideResizeOriginY(frame: locked, height: height,
-                                           alignsTop: lockedResizeAnchor?.alignsTop == true)
+                                           alignsTop: lockedResizeAnchor?.alignsTop == true,
+                                           rootSideBounds: rootSideResizeBounds)
             default: y = locked.maxY - height
             }
             return NSRect(x: locked.minX, y: y,
@@ -437,18 +439,24 @@ final class AnchoredStatusPanel: NSPanel {
         return NSRect(origin: frame.origin, size: size)
     }
 
-    static func sideResizeOriginY(frame: NSRect, height: CGFloat, alignsTop: Bool) -> CGFloat {
-        alignsTop ? frame.maxY - height : frame.midY - height / 2
+    static func sideResizeOriginY(frame: NSRect, height: CGFloat, alignsTop: Bool,
+                                  rootSideBounds: ClosedRange<CGFloat>? = nil) -> CGFloat {
+        if alignsTop { return frame.maxY - height }
+        guard let bounds = rootSideBounds else { return frame.midY - height / 2 }
+        return StatusPanelPlacement.clampedVerticalOrigin(center: frame.midY, height: height, bounds: bounds)
     }
 
-    static func sideResizeHeightBudget(frame: NSRect, lower: CGFloat, upper: CGFloat, alignsTop: Bool) -> CGFloat {
-        alignsTop ? frame.maxY - lower : 2 * min(frame.midY - lower, upper - frame.midY)
+    static func sideResizeHeightBudget(frame: NSRect, lower: CGFloat, upper: CGFloat, alignsTop: Bool,
+                                      isRootSidePanel: Bool = false) -> CGFloat {
+        if alignsTop { return frame.maxY - lower }
+        return isRootSidePanel ? upper - lower : 2 * min(frame.midY - lower, upper - frame.midY)
     }
 
     /// Keep the side already visible to the user, including an initial flip.
     /// If the expanded page would need the other side's larger budget, scroll
     /// on the selected side instead of flipping or growing off screen.
     private func lockResizePlacement() {
+        rootSideResizeBounds = nil
         lockedResizeAnchor = currentAnchor()
         lockedResizeFrame = frame
         switch lockedResizeAnchor?.preferredEdge {
@@ -457,19 +465,23 @@ final class AnchoredStatusPanel: NSPanel {
             lockedResizeEdge = frame.midY > (lockedResizeAnchor?.screenRect.midY ?? frame.maxY) ? .maxY : .minY
         }
         guard let screen = screen else { return }
-        let lower = screen.visibleFrame.minY + max(0, dockInset.bottom) + StatusPanelPlacement.edgeMargin
-        let upper = screen.visibleFrame.maxY - max(0, dockInset.top) - StatusPanelPlacement.edgeMargin
+        let bounds = StatusPanelPlacement.verticalTravelBounds(visibleFrame: screen.visibleFrame, dockInset: dockInset)
+        let lower = bounds.lowerBound
+        let upper = bounds.upperBound
+        let isRootSidePanel = parent == nil && lockedResizeAnchor?.alignsTop != true &&
+            (lockedResizeEdge == .minX || lockedResizeEdge == .maxX)
+        if isRootSidePanel { rootSideResizeBounds = bounds }
         let available: CGFloat
         switch lockedResizeEdge {
         case .maxY: available = upper - frame.minY
         case .minX, .maxX:
             available = Self.sideResizeHeightBudget(frame: frame, lower: lower, upper: upper,
-                                                    alignsTop: lockedResizeAnchor?.alignsTop == true)
+                                                    alignsTop: lockedResizeAnchor?.alignsTop == true,
+                                                    isRootSidePanel: isRootSidePanel)
         default: available = frame.maxY - lower
         }
-        layoutMetrics.update(maximumPanelHeight: max(1, min(
-            layoutMetrics.maximumPanelHeight ?? available, available
-        )))
+        let budget = isRootSidePanel ? available : min(layoutMetrics.maximumPanelHeight ?? available, available)
+        layoutMetrics.update(maximumPanelHeight: max(1, budget))
     }
 
     // MARK: - Layout scheduling
