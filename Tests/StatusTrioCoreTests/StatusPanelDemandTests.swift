@@ -355,6 +355,13 @@ final class StatusPanelDemandTests: XCTestCase {
     }
 
     func testPendingSchedulerActionCannotOverwriteRestartedPresentation() async {
+        func waitForPending(_ count: Int, scheduler: DemandPanelUpdateScheduler) async -> Bool {
+            for _ in 0..<1_000 {
+                if scheduler.pendingCount == count { return true }
+                await Task.yield()
+            }
+            return scheduler.pendingCount == count
+        }
         let fixture = PanelStoreFixture()
         fixture.settings.setPopupSection(.audioInput, enabled: true)
         let scheduler = DemandPanelUpdateScheduler()
@@ -387,7 +394,9 @@ final class StatusPanelDemandTests: XCTestCase {
         // Queue generation 1. `stop()` clears the panel's pending region set,
         // but the deliberately manual scheduler retains this callback.
         fixture.settings.alwaysShowsAllOutputDevices = true
-        XCTAssertEqual(scheduler.pendingCount, 1)
+        let firstQueued = await waitForPending(1, scheduler: scheduler)
+        XCTAssertTrue(firstQueued, "the first lifecycle must queue a refresh")
+        guard firstQueued else { return }
         panel.stop()
         panel.releaseInactivePresentationState()
         XCTAssertEqual(scheduler.pendingCount, 1)
@@ -419,7 +428,9 @@ final class StatusPanelDemandTests: XCTestCase {
         // callbacks are now in the scheduler, but only the new callback may
         // consume the new `.all` region.
         fixture.settings.alwaysShowsAllOutputDevices = true
-        XCTAssertEqual(scheduler.pendingCount, 2)
+        let restartQueued = await waitForPending(2, scheduler: scheduler)
+        XCTAssertTrue(restartQueued, "the restarted lifecycle must queue its own refresh")
+        guard restartQueued else { return }
 
         XCTAssertTrue(scheduler.runNextScheduled())
         XCTAssertEqual(scheduler.pendingCount, 1)
