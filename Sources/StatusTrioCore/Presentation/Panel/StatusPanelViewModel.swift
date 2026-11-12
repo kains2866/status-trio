@@ -19,7 +19,7 @@ private final class YieldingPanelPresentationUpdateScheduler: PanelPresentationU
 @MainActor
 final class StatusPanelViewModel: ObservableObject {
     private struct RefreshRegions: OptionSet {
-        let rawValue: UInt8
+        let rawValue: UInt16
         static let batteryDetails = Self(rawValue: 1 << 0)
         static let wifiDetails = Self(rawValue: 1 << 1)
         static let wiredDetailsAndNetwork = Self(rawValue: 1 << 2)
