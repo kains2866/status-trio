@@ -25,6 +25,8 @@ final class HighPowerModeController: ObservableObject {
     /// before the first answer.
     @Published private(set) var hasProbed = false
 
+    var onSuccessfulWrite: (@MainActor (Bool) -> Void)?
+
     private let client: any HighPowerModeClienting
     private var isEnabled = false
     private var isStopped = false
@@ -146,6 +148,7 @@ final class HighPowerModeController: ObservableObject {
                 let observed = try await self.client.setHighPowerMode(enabled)
                 guard self.generation == requestGeneration else { return }
                 self.isHighPowerMode = observed
+                self.onSuccessfulWrite?(observed)
             } catch {
                 guard self.generation == requestGeneration else { return }
                 self.isHighPowerMode = previous

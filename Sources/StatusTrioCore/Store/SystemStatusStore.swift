@@ -155,6 +155,7 @@ final class SystemStatusStore: ObservableObject {
     /// The High Power Mode write path (#235). Same helper as `lowPowerMode`,
     /// dormant for the same reason; the two bridges share the one LaunchDaemon.
     let highPowerMode: HighPowerModeController
+    let highPowerModeReadOnly = HighPowerModeReadOnlyMonitor()
     /// The low-battery → Low Power Mode automation (#246).
     private let lowPowerAutoEnable = LowPowerAutoEnableController()
     /// Helper readiness for the #246 automation. Production reads the shared
@@ -341,6 +342,9 @@ final class SystemStatusStore: ObservableObject {
         self.vpnStatus = .placeholder
         self.liveVolume = initialSnapshot.volume
         self.liveBrightness = initialSnapshot.brightness
+        highPowerMode.onSuccessfulWrite = { [weak highPowerModeReadOnly = self.highPowerModeReadOnly] enabled in
+            highPowerModeReadOnly?.acceptWriteResult(enabled)
+        }
         bluetoothAuthorizationCancellable = bluetoothDevices.$authorizationStatus
             .sink { [weak self] _ in
                 guard let self else { return }
@@ -370,6 +374,7 @@ final class SystemStatusStore: ObservableObject {
     func start() {
         guard !hasStarted, !hasStopped else { return }
         hasStarted = true
+        highPowerModeReadOnly.start()
         updateApplicationEnergyDemand()
         wifiMonitor.setDetailsVisible(false)
         volumeMonitor.setDetailsVisible(false)
@@ -613,6 +618,7 @@ final class SystemStatusStore: ObservableObject {
         mobileBattery.stop()
         lowPowerMode.stop()
         highPowerMode.stop()
+        highPowerModeReadOnly.stop()
         lowPowerAutoEnable.reset()
         appleDeviceDiscovery.stop()
         batteryMonitor.stop()
@@ -1227,6 +1233,7 @@ final class SystemStatusStore: ObservableObject {
 
     func refreshAll() {
         guard !hasStopped else { return }
+        highPowerModeReadOnly.refresh()
         batteryMonitor.refresh()
         wifiMonitor.refresh()
         volumeMonitor.refresh()
