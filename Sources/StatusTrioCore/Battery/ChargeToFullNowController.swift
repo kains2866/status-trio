@@ -135,13 +135,12 @@ final class ChargeToFullNowController: ObservableObject {
 
     func update(_ demand: ChargeToFullNowDemand) {
         currentDemand = demand
-        guard !isApplying, !isCancelling else { return }
-        guard demand.showsSurface, capability.isAvailable else {
+        guard demand.battery.isConnectedToPower else {
             publish(.hidden)
             return
         }
-
-        guard demand.battery.isConnectedToPower else {
+        guard !isApplying, !isCancelling else { return }
+        guard demand.showsSurface, capability.isAvailable else {
             publish(.hidden)
             return
         }
@@ -508,8 +507,7 @@ final class ChargeToFullNowController: ObservableObject {
     }
 
     private func publish(_ next: ChargeToFullNowPresentation) {
-        let next = next == .chargingToFull
-            && currentDemand?.battery.isConnectedToPower == false ? .hidden : next
+        let next = currentDemand?.battery.isConnectedToPower == false ? .hidden : next
         guard presentation != next else { return }
         presentation = next
     }

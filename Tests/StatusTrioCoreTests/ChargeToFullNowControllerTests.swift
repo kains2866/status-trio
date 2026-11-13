@@ -1064,6 +1064,19 @@ final class ChargeToFullNowControllerTests: XCTestCase {
         XCTAssertEqual(controller.presentation, .hidden)
     }
 
+    func testUnpluggingWhileWriteIsInFlightHidesRowEvenIfWriteFails() async {
+        let backend = StubBatteryChargeController(deviceState: .activeLimit)
+        let controller = ChargeToFullNowController(backend: backend)
+        controller.update(demand())
+        controller.requestChargeToFullNow()
+        await backend.waitUntilWriteStarts()
+        controller.update(demand(connectedToPower: false))
+        XCTAssertEqual(controller.presentation, .hidden)
+        backend.finishWrite(.failure)
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(controller.presentation, .hidden)
+    }
+
     func testUnpluggingHidesChargingRowWithoutDiscardingOverrideSession() {
         let store = VolatileChargeToFullNowSessionStore(
             session: ChargeToFullNowSession(originalLimit: 80, acceptedAt: Date())
