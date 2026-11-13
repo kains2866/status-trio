@@ -141,6 +141,11 @@ final class ChargeToFullNowController: ObservableObject {
             return
         }
 
+        guard demand.battery.isConnectedToPower else {
+            publish(.hidden)
+            return
+        }
+
         let state = backend.readState()
         if var restored = restoredLimit {
             if demand.battery.isCharging {
@@ -503,6 +508,8 @@ final class ChargeToFullNowController: ObservableObject {
     }
 
     private func publish(_ next: ChargeToFullNowPresentation) {
+        let next = next == .chargingToFull
+            && currentDemand?.battery.isConnectedToPower == false ? .hidden : next
         guard presentation != next else { return }
         presentation = next
     }

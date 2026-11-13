@@ -80,6 +80,20 @@ final class PresentationTextMapperTests: XCTestCase {
         )
     }
 
+    func testUnpluggedBatteryDoesNotShowChargeToFullPlaceholder() {
+        let localization = makeLocalization(.simplifiedChinese)
+        for action: ChargeToFullNowPresentation in [.applying, .chargingToFull, .cancelling] {
+            XCTAssertEqual(
+                PanelPresentationMapper.batterySubtitle(
+                    makeBattery(isConnectedToPower: false),
+                    localization: localization,
+                    chargeToFullNow: action
+                ),
+                "电池供电"
+            )
+        }
+    }
+
     func testBatteryTimeToFullFormatting() {
         let localization = makeLocalization(.simplifiedChinese)
         let cases: [(Int?, String)] = [
