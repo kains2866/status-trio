@@ -813,3 +813,5 @@
 "appMixer.mute" = "Silenciar";
 "appMixer.unmute" = "Activar sonido";
 "appMixer.routeUnavailable" = "Esta salida no permite un ajuste independiente.";
+
+"settings.audio.applicationMixer.description" = "Muestra los paneles de apps al pasar sobre los títulos de volumen o micrófono. Restablecer no desactiva la función.";

@@ -813,3 +813,5 @@
 "appMixer.mute" = "Stummschalten";
 "appMixer.unmute" = "Stummschaltung aufheben";
 "appMixer.routeUnavailable" = "Dieser Ausgabepfad lässt sich nicht unabhängig regeln.";
+
+"settings.audio.applicationMixer.description" = "App-Panels beim Bewegen über die Lautstärke- oder Mikrofonüberschrift anzeigen. Zurücksetzen lässt die Funktion eingeschaltet.";

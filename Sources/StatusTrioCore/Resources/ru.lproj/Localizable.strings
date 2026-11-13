@@ -813,3 +813,5 @@
 "appMixer.mute" = "Выключить звук";
 "appMixer.unmute" = "Включить звук";
 "appMixer.routeUnavailable" = "Этот выход нельзя регулировать отдельно.";
+
+"settings.audio.applicationMixer.description" = "Показывать панели приложений при наведении на заголовок громкости или микрофона. Сброс не отключает функцию.";

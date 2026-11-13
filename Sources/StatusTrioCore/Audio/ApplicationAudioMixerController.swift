@@ -57,8 +57,18 @@ final class ApplicationAudioMixerController: ObservableObject {
     }
 
     func setPanelVisible(_ visible: Bool) {
-        isPanelVisible = visible
+        isPanelVisible = visible && isEnabled
         updateDiscoveryDemand()
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        if enabled {
+            enable()
+        } else {
+            isEnabled = false
+            isPanelVisible = false
+            reset()
+        }
     }
 
     func enable() {
@@ -83,7 +93,6 @@ final class ApplicationAudioMixerController: ObservableObject {
     func reset() {
         errorMessage = nil
         adjustments = [:]
-        isEnabled = false
         // Retry only owners already retired before this explicit action, not newly failed stops.
         let previouslyRetired = retiredSessions
         stopSessions()
@@ -94,7 +103,7 @@ final class ApplicationAudioMixerController: ObservableObject {
 
     func stop() {
         isPanelVisible = false
-        reset()
+        setEnabled(false)
         snapshots = []
         rows = []
     }
@@ -117,7 +126,6 @@ final class ApplicationAudioMixerController: ObservableObject {
                 stopEngine(engine, for: row.id)
                 adjustments.removeValue(forKey: row.id)
                 // Other applications already have independent, healthy sessions.
-                if sessions.isEmpty && adjustments.isEmpty { isEnabled = false }
                 reconcileRows()
                 updateDiscoveryDemand()
                 return
@@ -185,7 +193,6 @@ final class ApplicationAudioMixerController: ObservableObject {
                     self.adjustments = [:]
                     self.snapshots = []
                     self.rows = []
-                    self.isEnabled = false
                 }
                 self.updateDiscoveryDemand()
             }

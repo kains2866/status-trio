@@ -813,3 +813,5 @@
 "appMixer.mute" = "静音";
 "appMixer.unmute" = "取消静音";
 "appMixer.routeUnavailable" = "此输出路径暂不支持独立调节。";
+
+"settings.audio.applicationMixer.description" = "开启后，悬浮在音量或麦克风标题区域可打开应用子面板。重置仅恢复各应用音量，不关闭此功能。";

@@ -16,33 +16,50 @@ struct ApplicationAudioMixerHeader: View {
     @EnvironmentObject private var localization: Localization
     let title: String
     let isInput: Bool
-    let controller: ApplicationAudioMixerController
+    @ObservedObject var controller: ApplicationAudioMixerController
     let onOpenSettings: () -> Void
     @State private var isPresented = false
 
     var body: some View {
         HStack(spacing: 8) {
-            Button { isPresented = true } label: {
-                HStack {
-                    Text(title)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
+            if controller.isEnabled {
+                Button { isPresented = true } label: {
+                    HStack {
+                        Text(title)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 22)
+                    .contentShape(Rectangle())
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, minHeight: 22)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle))
-            .cascadingSubmenu(isPresented: $isPresented) {
-                ApplicationAudioMixerView(controller: controller, isInput: isInput)
+                .buttonStyle(.plain)
+                .accessibilityLabel(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle))
+                .cascadingSubmenu(isPresented: $isPresented) {
+                    ApplicationAudioMixerView(controller: controller, isInput: isInput)
+                }
+            } else {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if controller.errorMessage != nil {
+                    Button { controller.reset() } label: {
+                        Image(systemName: "arrow.clockwise.circle")
+                            .foregroundStyle(.orange)
+                    }
+                    .buttonStyle(.plain)
+                    .help(localization.string(.appMixerFailed) + " " + localization.string(.appMixerReset))
+                    .accessibilityLabel(localization.string(.appMixerFailed) + " " + localization.string(.appMixerReset))
+                }
             }
             Button(action: onOpenSettings) {
                 PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(localization.string(isInput ? .audioInputOpenSettings : .volumeActionOpenSettings))
+        }
+        .onChange(of: controller.isEnabled) { enabled in
+            if !enabled { isPresented = false }
         }
     }
 }
@@ -69,10 +86,6 @@ struct ApplicationAudioMixerView: View {
             } else {
                 if isInput {
                     message(.appMixerInputReadOnly)
-                } else if !controller.isEnabled {
-                    message(.appMixerPermission)
-                    Button(localization.string(.appMixerEnable)) { controller.enable() }
-                        .buttonStyle(.bordered)
                 }
                 if rows.isEmpty {
                     message(isInput ? .appMixerNoInput : .appMixerNoOutput)

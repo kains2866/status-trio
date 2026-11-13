@@ -813,3 +813,5 @@
 "appMixer.mute" = "消音";
 "appMixer.unmute" = "消音を解除";
 "appMixer.routeUnavailable" = "この出力経路は個別調整に対応していません。";
+
+"settings.audio.applicationMixer.description" = "音量やマイクの見出しにポインタを置くとアプリのパネルを表示します。リセットしても機能は有効のままです。";

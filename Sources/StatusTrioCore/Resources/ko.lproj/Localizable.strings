@@ -813,3 +813,5 @@
 "appMixer.mute" = "음소거";
 "appMixer.unmute" = "음소거 해제";
 "appMixer.routeUnavailable" = "이 출력 경로는 개별 조절을 지원하지 않습니다.";
+
+"settings.audio.applicationMixer.description" = "음량 또는 마이크 제목에 마우스를 올리면 앱 패널이 열립니다. 초기화해도 기능은 켜진 상태로 유지됩니다.";

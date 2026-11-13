@@ -1,4 +1,5 @@
 enum LocalizationKey: String, CaseIterable, Hashable, Sendable {
+    case settingsAppMixerDescription = "settings.audio.applicationMixer.description"
     case appMixerOutputTitle = "appMixer.outputTitle"
     case appMixerInputTitle = "appMixer.inputTitle"
     case appMixerReset = "appMixer.reset"

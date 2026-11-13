@@ -813,3 +813,5 @@
 "appMixer.mute" = "Couper le son";
 "appMixer.unmute" = "Rétablir le son";
 "appMixer.routeUnavailable" = "Cette sortie ne peut pas être réglée indépendamment.";
+
+"settings.audio.applicationMixer.description" = "Affiche les panneaux des apps au survol des titres Volume ou Microphone. La réinitialisation laisse la fonction activée.";

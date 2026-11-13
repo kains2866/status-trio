@@ -813,3 +813,5 @@
 "appMixer.mute" = "كتم الصوت";
 "appMixer.unmute" = "إلغاء الكتم";
 "appMixer.routeUnavailable" = "لا يمكن ضبط مسار الإخراج هذا بشكل مستقل.";
+
+"settings.audio.applicationMixer.description" = "عرض لوحات التطبيقات عند تمرير المؤشر فوق عنوان الصوت أو الميكروفون. إعادة الضبط لا توقف الميزة.";

@@ -32,6 +32,7 @@ struct AudioSectionView: View {
     @ViewBuilder
     private var fullAudioContent: some View {
         panelVisibilityGroup
+        applicationMixerGroup
         volumeFeedbackGroup
         volumeScrollGroup
         displayRulesGroup
@@ -61,6 +62,29 @@ struct AudioSectionView: View {
                 )
             )
         }
+    }
+
+    private var applicationMixerGroup: some View {
+        SettingsGroup(localization.string(.appMixerOutputTitle),
+                      footnote: localization.string(.appMixerPermission)) {
+            SettingsToggleRow(
+                symbol: "slider.horizontal.3",
+                tint: .cyan,
+                title: localization.string(.appMixerEnable),
+                subtitle: localization.string(.settingsAppMixerDescription),
+                isOn: $store.applicationAudioMixerEnabled
+            )
+            .disabled(!applicationMixerSupported)
+            if !applicationMixerSupported {
+                Text(localization.string(.appMixerUnsupported))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var applicationMixerSupported: Bool {
+        if #available(macOS 14.2, *) { return true }
+        return false
     }
 
     private var volumeFeedbackGroup: some View {

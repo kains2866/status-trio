@@ -43,6 +43,7 @@ final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let popover = AnchoredStatusPanel()
     private let applicationAudioMixer = ApplicationAudioMixerController()
+    private var applicationAudioMixerSettingsCancellable: AnyCancellable?
     private let store: SystemStatusStore
     private let settings: SettingsStore
     private let panelActions: StatusPanelActions
@@ -263,6 +264,10 @@ final class StatusBarController: NSObject {
         self.latestIconOutput = iconPresentation.output
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
+
+        applicationAudioMixerSettingsCancellable = settings.$applicationAudioMixerEnabled
+            .removeDuplicates()
+            .sink { [weak self] enabled in self?.applicationAudioMixer.setEnabled(enabled) }
 
         statusItem.isVisible = isVisible
         configureButton()
