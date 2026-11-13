@@ -6,6 +6,40 @@
     <description>Most recent changes for Status Trio.</description>
     <language>en</language>
     <item>
+      <title xml:lang="en">Personal Version 1.9.5 (Build 52)</title>
+      <title xml:lang="ar">الإصدار الشخصي 1.9.5 (البنية 52)</title>
+      <title xml:lang="de">Persönliche Version 1.9.5 (Build 52)</title>
+      <title xml:lang="es">Versión personal 1.9.5 (Compilación 52)</title>
+      <title xml:lang="fr">Version personnelle 1.9.5 (Build 52)</title>
+      <title xml:lang="it">Versione personale 1.9.5 (Build 52)</title>
+      <title xml:lang="ja">個人版 1.9.5 (ビルド 52)</title>
+      <title xml:lang="ko">개인 버전 1.9.5 (빌드 52)</title>
+      <title xml:lang="pt-BR">Versão pessoal 1.9.5 (Build 52)</title>
+      <title xml:lang="ru">Персональная версия 1.9.5 (сборка 52)</title>
+      <title xml:lang="zh-Hans">个人版 1.9.5 (构建 52)</title>
+      <title xml:lang="zh-Hant">個人版 1.9.5 (組建 52)</title>
+      <pubDate>Fri, 13 Nov 2026 12:05:54 +0000</pubDate>
+      <sparkle:version>52</sparkle:version>
+      <sparkle:shortVersionString>1.9.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[<h3>High Power Mode</h3><ul><li>Reads the system’s High Power Mode and shows the battery ring in blue while it is active, without enabling the privileged Helper.</li><li>If reading fails, the most recent state is retained. Changes made in the app are synchronized.</li><li>Real-time notifications for changes made outside the app still need verification on supported models.</li></ul>]]></description>
+      <description xml:lang="ar"><![CDATA[<div dir="rtl"><h3>نمط الطاقة العالية</h3><ul><li>تُقرأ حالة نمط الطاقة العالية في النظام، وتظهر حلقة البطارية باللون الأزرق عند تفعيله، دون الحاجة إلى تفعيل Helper ذي الامتيازات.</li><li>عند فشل القراءة، تُحتفظ بآخر حالة. وتتم مزامنة التغييرات التي تُجرى داخل التطبيق.</li><li>لا تزال الإشعارات الفورية للتغييرات التي تُجرى خارج التطبيق بحاجة إلى التحقق على الطرازات المدعومة.</li></ul></div>]]></description>
+      <description xml:lang="de"><![CDATA[<h3>Hochleistungsmodus</h3><ul><li>Der Hochleistungsmodus des Systems wird ausgelesen und der Batteriering bei aktivem Modus blau angezeigt, ohne den privilegierten Helper zu aktivieren.</li><li>Schlägt das Auslesen fehl, bleibt der zuletzt bekannte Zustand erhalten. Änderungen in der App werden synchronisiert.</li><li>Echtzeitbenachrichtigungen für Änderungen außerhalb der App müssen auf unterstützten Modellen noch überprüft werden.</li></ul>]]></description>
+      <description xml:lang="es"><![CDATA[<h3>Modo de alto rendimiento</h3><ul><li>Se lee el modo de alto rendimiento del sistema y el anillo de batería aparece en azul cuando está activo, sin activar el Helper privilegiado.</li><li>Si falla la lectura, se conserva el último estado. Los cambios realizados en la aplicación se sincronizan.</li><li>Las notificaciones en tiempo real de cambios realizados fuera de la aplicación aún deben verificarse en modelos compatibles.</li></ul>]]></description>
+      <description xml:lang="fr"><![CDATA[<h3>Mode haute puissance</h3><ul><li>Le mode haute puissance du système est lu et l’anneau de batterie s’affiche en bleu lorsqu’il est actif, sans activer le Helper privilégié.</li><li>En cas d’échec de lecture, le dernier état est conservé. Les changements effectués dans l’application sont synchronisés.</li><li>Les notifications en temps réel des changements effectués hors de l’application restent à vérifier sur les modèles compatibles.</li></ul>]]></description>
+      <description xml:lang="it"><![CDATA[<h3>Modalità di alta potenza</h3><ul><li>La modalità di alta potenza del sistema viene letta e, quando è attiva, l’anello della batteria diventa blu, senza attivare l’Helper privilegiato.</li><li>Se la lettura fallisce, viene mantenuto l’ultimo stato. Le modifiche effettuate nell’app vengono sincronizzate.</li><li>Le notifiche in tempo reale per le modifiche effettuate fuori dall’app devono ancora essere verificate sui modelli supportati.</li></ul>]]></description>
+      <description xml:lang="ja"><![CDATA[<h3>高電力モード</h3><ul><li>システムの高電力モードを読み取り、有効時はバッテリーリングを青く表示します。特権 Helper を有効にする必要はありません。</li><li>読み取りに失敗した場合は直近の状態を保持します。アプリ内で切り替えた状態は同期されます。</li><li>アプリ外でのシステム設定の切り替えに対するリアルタイム通知は、対応機種での検証が必要です。</li></ul>]]></description>
+      <description xml:lang="ko"><![CDATA[<h3>고성능 모드</h3><ul><li>시스템의 고성능 모드를 읽고 활성화된 동안 배터리 링을 파란색으로 표시하며, 권한 있는 Helper를 활성화할 필요가 없습니다.</li><li>읽기에 실패하면 가장 최근 상태를 유지합니다. 앱에서 변경한 상태는 동기화됩니다.</li><li>앱 외부에서 시스템 설정을 변경할 때의 실시간 알림은 지원 모델에서 추가 검증이 필요합니다.</li></ul>]]></description>
+      <description xml:lang="pt-BR"><![CDATA[<h3>Modo de Alta Potência</h3><ul><li>O modo de Alta Potência do sistema é lido e o anel da bateria fica azul quando ele está ativo, sem ativar o Helper privilegiado.</li><li>Se a leitura falhar, o estado mais recente é mantido. As alterações feitas no app são sincronizadas.</li><li>As notificações em tempo real de alterações feitas fora do app ainda precisam ser verificadas em modelos compatíveis.</li></ul>]]></description>
+      <description xml:lang="ru"><![CDATA[<h3>Режим высокой мощности</h3><ul><li>Считывается системный режим высокой мощности; когда он активен, кольцо батареи отображается синим. Включать привилегированный Helper не требуется.</li><li>При ошибке чтения сохраняется последнее состояние. Изменения, сделанные в приложении, синхронизируются.</li><li>Уведомления в реальном времени об изменениях вне приложения ещё необходимо проверить на поддерживаемых моделях.</li></ul>]]></description>
+      <description xml:lang="zh-Hans"><![CDATA[<h3>高性能模式</h3><ul><li>支持读取系统高性能模式，启用时将电池环显示为蓝色，无需开启特权 Helper。</li><li>读取失败时保留最近状态；在应用内切换时同步状态。</li><li>在应用外切换系统模式的实时通知仍需在支持的机型上验证。</li></ul>]]></description>
+      <description xml:lang="zh-Hant"><![CDATA[<h3>高效能模式</h3><ul><li>支援讀取系統高效能模式，啟用時將電池環顯示為藍色，無需啟用特權 Helper。</li><li>讀取失敗時保留最近狀態；在 App 內切換時同步狀態。</li><li>在 App 外切換系統模式的即時通知仍需在支援的機型上驗證。</li></ul>]]></description>
+      <enclosure url="https://github.com/kains2866/status-trio/releases/download/v1.9.5/StatusTrio-1.9.5.dmg"
+                 type="application/octet-stream"
+                 sparkle:edSignature="Xfw2iPGAnjHUCxOLUQgzjloMMpg3pD1ePBfqpLdfs/Rc7/S4UE567jxCHT+KLVWIkeRO4Xd8VWlWqruTjc3yCQ=="
+                 length="18942933" />
+    </item>
+    <item>
       <title xml:lang="en">Personal Version 1.9.4 (Build 51)</title>
       <title xml:lang="ar">الإصدار الشخصي 1.9.4 (البنية 51)</title>
       <title xml:lang="de">Persönliche Version 1.9.4 (Build 51)</title>
