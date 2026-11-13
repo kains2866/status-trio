@@ -42,6 +42,7 @@ final class StatusBarController: NSObject {
 
     private let statusItem: NSStatusItem
     private let popover = AnchoredStatusPanel()
+    private let applicationAudioMixer = ApplicationAudioMixerController()
     private let store: SystemStatusStore
     private let settings: SettingsStore
     private let panelActions: StatusPanelActions
@@ -481,6 +482,8 @@ final class StatusBarController: NSObject {
         }
     }
 
+    func stopApplicationAudioMixer() { applicationAudioMixer.stop() }
+
     private func configurePopover() {
         // The panel replaces NSPopover (issue #186); close teardown runs through
         // the panel's own callback instead of NSPopoverDelegate.
@@ -516,6 +519,7 @@ final class StatusBarController: NSObject {
                 dismissPanel: { [weak self] in self?.closePopover() },
                 contentMeasurementID: measurementID
             )
+            .environment(\.applicationAudioMixer, applicationAudioMixer)
         }
         let hostingController = StatusPanelHostingController(rootView: rootView)
         // StatusPanelLayoutMetrics owns the panel height; preferred sizing here
@@ -1067,6 +1071,10 @@ final class StatusBarController: NSObject {
         // 2. A scrollable scroll view under the pointer owns the wheel.
         if isPointerOverScrollableScrollView(event) { return false }
 
+        // Unregistered controls and empty areas in child panels must not adjust
+        // the parent output volume. Registered overflow sliders were handled above.
+        guard event.window === popover else { return false }
+
         // 3. Panel-wide fallback to the output volume (default preference).
         guard settings.popupVolumeScrollScope == .panel,
               store.isVolumeControlAvailable,
@@ -1207,6 +1215,7 @@ final class StatusBarController: NSObject {
     }
 
     private func handlePanelDidClose() {
+        applicationAudioMixer.setPanelVisible(false)
         if NSEvent.pressedMouseButtons & 1 != 0 {
             dockClickReopenGuard.recordClose(mouseDownAt: Self.lastLeftMouseDownTime())
         }

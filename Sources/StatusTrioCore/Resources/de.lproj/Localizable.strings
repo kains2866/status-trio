@@ -798,3 +798,18 @@
 "battery.details.condition.normal" = "Normal";
 "battery.details.condition.service" = "Wartung empfohlen";
 "battery.details.highPower.unsupported" = "Nicht unterstützt";
+
+// Application audio mixer
+"appMixer.outputTitle" = "App-Lautstärke";
+"appMixer.inputTitle" = "Mikrofon-Apps";
+"appMixer.reset" = "Alle zurücksetzen";
+"appMixer.unsupported" = "App-Audio erfordert macOS 14.2 oder neuer.";
+"appMixer.inputReadOnly" = "Apps mit aktivem Audioeingang. Den Mikrofonpegel über die Gerätesteuerung anpassen.";
+"appMixer.permission" = "Aktivieren, um App-Audio anzupassen. Bei der ersten Änderung kann macOS Zugriff auf die Systemaudioaufnahme anfordern.";
+"appMixer.enable" = "App-Mixer aktivieren";
+"appMixer.noInput" = "Keine App verwendet einen Audioeingang.";
+"appMixer.noOutput" = "Keine App spielt Audio ab.";
+"appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
+"appMixer.mute" = "Stummschalten";
+"appMixer.unmute" = "Stummschaltung aufheben";
+"appMixer.routeUnavailable" = "Dieser Ausgabepfad lässt sich nicht unabhängig regeln.";

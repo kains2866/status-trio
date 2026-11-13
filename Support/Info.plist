@@ -22,6 +22,8 @@
 	<string>1.9.5</string>
 	<key>CFBundleVersion</key>
 	<string>52</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Status Trio processes audio from apps you choose so you can adjust their volume independently. Audio is not saved or uploaded.</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>

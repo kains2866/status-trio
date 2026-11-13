@@ -796,3 +796,18 @@
 "battery.details.condition.normal" = "Normal";
 "battery.details.condition.service" = "Service recommended";
 "battery.details.highPower.unsupported" = "Not supported";
+
+// Application audio mixer
+"appMixer.outputTitle" = "Application volume";
+"appMixer.inputTitle" = "Microphone apps";
+"appMixer.reset" = "Reset all";
+"appMixer.unsupported" = "Application audio requires macOS 14.2 or later.";
+"appMixer.inputReadOnly" = "Shows apps using audio input. Adjust microphone levels using the device controls.";
+"appMixer.permission" = "Enable to adjust application audio. Your first adjustment may request system audio recording access.";
+"appMixer.enable" = "Enable app mixer";
+"appMixer.noInput" = "No apps are using audio input.";
+"appMixer.noOutput" = "No apps are playing audio.";
+"appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
+"appMixer.mute" = "Mute";
+"appMixer.unmute" = "Unmute";
+"appMixer.routeUnavailable" = "This output route cannot be adjusted independently.";

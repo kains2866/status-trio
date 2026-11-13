@@ -24,6 +24,7 @@ struct VolumeControlsSection: View {
 
 
 struct VolumeControlsView: View {
+    @Environment(\.applicationAudioMixer) private var applicationAudioMixer
     private struct SynchronizationSnapshot: Equatable {
         let scalar: Double?
         let identity: VolumeControlInteractionIdentity
@@ -59,16 +60,25 @@ struct VolumeControlsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !state.showsDeviceList {
+                if let applicationAudioMixer {
+                ApplicationAudioMixerHeader(title: localization.string(.volumeAccessibilityLabel),
+                    isInput: false, controller: applicationAudioMixer, onOpenSettings: onOpenSoundSettings)
+                }
                 legacyControls
             }
             if state.showsDeviceList {
-                HStack {
-                    Text(localization.string(.volumeAccessibilityLabel)).font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button(action: onOpenSoundSettings) { PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary) }
-                        .buttonStyle(.plain)
-                        .help(localization.string(.volumeActionOpenSettings))
-                        .accessibilityLabel(localization.string(.volumeActionOpenSettings))
+                if let applicationAudioMixer {
+                ApplicationAudioMixerHeader(title: localization.string(.volumeAccessibilityLabel),
+                    isInput: false, controller: applicationAudioMixer, onOpenSettings: onOpenSoundSettings)
+                } else {
+                    HStack {
+                        Text(localization.string(.volumeAccessibilityLabel)).font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button(action: onOpenSoundSettings) { PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary) }
+                            .buttonStyle(.plain)
+                            .help(localization.string(.volumeActionOpenSettings))
+                            .accessibilityLabel(localization.string(.volumeActionOpenSettings))
+                    }
                 }
                 OutputDeviceList(
                     rows: state.rows,
@@ -130,14 +140,16 @@ struct VolumeControlsView: View {
                 .frame(minWidth: 34, alignment: .trailing)
                 .accessibilityHidden(true)
 
-            Button(action: onOpenSoundSettings) {
-                PanelActionGlyph(systemName: "gearshape")
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
+            if applicationAudioMixer == nil {
+                Button(action: onOpenSoundSettings) {
+                    PanelActionGlyph(systemName: "gearshape")
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(localization.string(.volumeActionOpenSettings))
+                .accessibilityLabel(localization.string(.volumeActionOpenSettings))
             }
-            .buttonStyle(.plain)
-            .help(localization.string(.volumeActionOpenSettings))
-            .accessibilityLabel(localization.string(.volumeActionOpenSettings))
         }
     }
 

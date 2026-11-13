@@ -798,3 +798,18 @@
 "battery.details.condition.normal" = "طبيعي";
 "battery.details.condition.service" = "يُنصح بالصيانة";
 "battery.details.highPower.unsupported" = "غير مدعوم";
+
+// Application audio mixer
+"appMixer.outputTitle" = "مستوى صوت التطبيقات";
+"appMixer.inputTitle" = "تطبيقات الميكروفون";
+"appMixer.reset" = "إعادة ضبط الكل";
+"appMixer.unsupported" = "يتطلب صوت التطبيقات macOS 14.2 أو أحدث.";
+"appMixer.inputReadOnly" = "التطبيقات التي تستخدم إدخال الصوت. اضبط الميكروفون من عناصر تحكم الجهاز.";
+"appMixer.permission" = "فعّل ضبط الصوت لكل تطبيق. قد يطلب أول تعديل إذن تسجيل صوت النظام.";
+"appMixer.enable" = "تفعيل مزج التطبيقات";
+"appMixer.noInput" = "لا توجد تطبيقات تستخدم إدخال الصوت.";
+"appMixer.noOutput" = "لا توجد تطبيقات تشغّل الصوت.";
+"appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
+"appMixer.mute" = "كتم الصوت";
+"appMixer.unmute" = "إلغاء الكتم";
+"appMixer.routeUnavailable" = "لا يمكن ضبط مسار الإخراج هذا بشكل مستقل.";

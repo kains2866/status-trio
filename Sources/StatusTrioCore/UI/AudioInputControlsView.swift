@@ -80,6 +80,7 @@ struct AudioInputVolumeDraft {
 }
 
 struct AudioInputControlsView: View {
+    @Environment(\.applicationAudioMixer) private var applicationAudioMixer
     @EnvironmentObject private var localization: Localization
 
     let state: AudioInputPanelState
@@ -99,7 +100,13 @@ struct AudioInputControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !state.showsDeviceList { controls }
+            if !state.showsDeviceList {
+                if let applicationAudioMixer {
+                    ApplicationAudioMixerHeader(title: localization.string(.audioInputTitle),
+                        isInput: true, controller: applicationAudioMixer, onOpenSettings: onOpenSoundSettings)
+                }
+                controls
+            }
             deviceList
 
             if let error = state.errorText {
@@ -201,24 +208,26 @@ struct AudioInputControlsView: View {
                 .frame(minWidth: 34, alignment: .trailing)
                 .accessibilityHidden(true)
 
-            Button(action: onOpenSoundSettings) {
-                PanelActionGlyph(systemName: "gearshape")
-                    .foregroundStyle(.secondary)
-                    .contentShape(Rectangle())
-                    .opacity(state.isBusy ? 0 : 1)
-            }
-            .buttonStyle(.plain)
-            .overlay {
-                if state.isBusy {
-                    ProgressView()
-                        .controlSize(.small)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
+            if applicationAudioMixer == nil {
+                Button(action: onOpenSoundSettings) {
+                    PanelActionGlyph(systemName: "gearshape")
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                        .opacity(state.isBusy ? 0 : 1)
                 }
+                .buttonStyle(.plain)
+                .overlay {
+                    if state.isBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .help(localization.string(.audioInputOpenSettings))
+                .accessibilityLabel(localization.string(.audioInputOpenSettings))
+                .accessibilityValue(state.isBusy ? localization.string(.audioInputRefreshing) : "")
             }
-            .help(localization.string(.audioInputOpenSettings))
-            .accessibilityLabel(localization.string(.audioInputOpenSettings))
-            .accessibilityValue(state.isBusy ? localization.string(.audioInputRefreshing) : "")
         }
     }
 
@@ -240,14 +249,19 @@ struct AudioInputControlsView: View {
     @ViewBuilder
     private var deviceList: some View {
         if state.showsDeviceList {
-            HStack {
-                Text(localization.string(.audioInputTitle)).font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                if state.isBusy { ProgressView().controlSize(.small) }
-                Button(action: onOpenSoundSettings) { PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary) }
-                    .buttonStyle(.plain)
-                    .help(localization.string(.audioInputOpenSettings))
-                    .accessibilityLabel(localization.string(.audioInputOpenSettings))
+            if let applicationAudioMixer {
+                ApplicationAudioMixerHeader(title: localization.string(.audioInputTitle),
+                    isInput: true, controller: applicationAudioMixer, onOpenSettings: onOpenSoundSettings)
+            } else {
+                HStack {
+                    Text(localization.string(.audioInputTitle)).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if state.isBusy { ProgressView().controlSize(.small) }
+                    Button(action: onOpenSoundSettings) { PanelActionGlyph(systemName: "gearshape").foregroundStyle(.secondary) }
+                        .buttonStyle(.plain)
+                        .help(localization.string(.audioInputOpenSettings))
+                        .accessibilityLabel(localization.string(.audioInputOpenSettings))
+                }
             }
 
             VStack(spacing: 2) {

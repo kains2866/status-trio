@@ -798,3 +798,18 @@
 "battery.details.condition.normal" = "正常";
 "battery.details.condition.service" = "建議維修";
 "battery.details.highPower.unsupported" = "不支援";
+
+// Application audio mixer
+"appMixer.outputTitle" = "應用程式音量";
+"appMixer.inputTitle" = "麥克風使用程式";
+"appMixer.reset" = "全部重設";
+"appMixer.unsupported" = "應用程式音訊需要 macOS 14.2 或更新版本。";
+"appMixer.inputReadOnly" = "這裡顯示正在使用音訊輸入的程式。麥克風音量請在裝置列調整。";
+"appMixer.permission" = "啟用後可個別調整程式音量。首次調整時，系統可能要求音訊錄製權限。";
+"appMixer.enable" = "啟用應用程式混音";
+"appMixer.noInput" = "目前沒有程式使用音訊輸入。";
+"appMixer.noOutput" = "目前沒有程式播放音訊。";
+"appMixer.failed" = "無法調整程式音訊。請重試或重設混音。";
+"appMixer.mute" = "靜音";
+"appMixer.unmute" = "取消靜音";
+"appMixer.routeUnavailable" = "此輸出路徑暫不支援個別調整。";

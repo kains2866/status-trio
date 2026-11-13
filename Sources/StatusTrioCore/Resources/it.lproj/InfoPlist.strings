@@ -1,3 +1,5 @@
 "NSLocationUsageDescription" = "Used to show the current Wi-Fi network name in the popover and, when you open Wi-Fi details, to read network names, scan results, and connection information.";
 "NSLocationWhenInUseUsageDescription" = "Used to show the current Wi-Fi network name in the popover and, when you open Wi-Fi details, to read network names, scan results, and connection information.";
 "NSBluetoothAlwaysUsageDescription" = "Mostra lo stato della connessione Bluetooth, legge informazioni su batteria/modello per dispositivi nelle vicinanze con nome e dispositivi già attendibili, e cambia la modalità di cancellazione del rumore su cuffie supportate; le letture vicine usano solo UUID BLE autorizzati esplicitamente.";
+
+"NSAudioCaptureUsageDescription" = "Status Trio processes audio from apps you choose to adjust their volume independently. Audio is not saved or uploaded.";

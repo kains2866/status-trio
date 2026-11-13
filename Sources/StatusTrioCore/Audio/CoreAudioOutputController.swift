@@ -37,11 +37,13 @@ final class CoreAudioOutputController: AudioOutputControlling {
             .filter(isOutputDevice)
             .compactMap { deviceID -> AudioOutputDevice? in
                 guard !isHidden(deviceID) else { return nil }
+                let uid = deviceUID(for: deviceID)
+                guard uid?.hasPrefix("com.statustrio.application-audio.") != true else { return nil }
 
                 return AudioOutputDevice(
                     id: deviceID,
                     name: deviceName(for: deviceID),
-                    uid: deviceUID(for: deviceID),
+                    uid: uid,
                     isCurrent: deviceID == currentDeviceID,
                     transport: transport(for: deviceID),
                     dataSource: dataSource(for: deviceID),

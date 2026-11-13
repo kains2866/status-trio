@@ -11,3 +11,7 @@ On first explicit Enable action, request system audio capture access; hover alon
 First version targets independently controllable output sessions on a known output route. Preserve device routing; do not silently force all sources to the system default. Unsupported/ambiguous routes show an explanation. Browser subprocess identity, permission denial, exit/PID reuse, default-output/device loss, AirPods reconnection and closing/reopening the submenu require coverage. Real audio changes require manual user acceptance.
 
 Sources: Apple Capturing system audio with Core Audio taps; local CoreAudio SDK AudioHardware.h, AudioHardwareTapping.h, CATapDescription.h. API floor verified as 14.2 in installed SDK.
+
+Implementation constraints for first manual build: the physical output endpoint must expose no input streams, and the private aggregate must expose exactly the intended active tap plus supported stereo output. Bidirectional endpoints that cannot satisfy these checks are reported unsupported rather than risk routing microphone audio. This is evaluated per endpoint, not per headphone brand. A supported-looking row may still reject activation if HAL cannot construct a safe format/topology. No 14.2/Ventura/AirPods runtime claim is inferred from a build.
+
+Adjusted gain/mute survives pause/resume for the same verified live application instance. Output route or format changes reset interception. Failed HAL cleanup retains failed handles for a bounded retry and explicit recovery; the UI does not claim native audio restoration unless established.
