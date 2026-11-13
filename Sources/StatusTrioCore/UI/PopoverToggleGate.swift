@@ -18,3 +18,25 @@ struct PopoverToggleGate {
         return true
     }
 }
+
+/// Matches a Dock reopen to the physical mouse-down that dismissed the panel.
+struct DockClickReopenGuard {
+    private var closingMouseDownAt: TimeInterval?
+    private(set) var hasPendingClose = false
+
+    mutating func recordClose(mouseDownAt: TimeInterval?) {
+        hasPendingClose = true
+        closingMouseDownAt = mouseDownAt.flatMap { $0.isFinite ? $0 : nil }
+    }
+
+    mutating func consumeIfSamePress(mouseDownAt: TimeInterval?) -> Bool {
+        defer { reset() }
+        guard let closingMouseDownAt, let mouseDownAt, mouseDownAt.isFinite else { return false }
+        return abs(closingMouseDownAt - mouseDownAt) < 0.02
+    }
+
+    mutating func reset() {
+        closingMouseDownAt = nil
+        hasPendingClose = false
+    }
+}

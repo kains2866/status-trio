@@ -155,6 +155,7 @@ final class StatusBarController: NSObject {
     private var popoverToggleGate = PopoverToggleGate(
         lockout: StatusBarController.popoverToggleLockoutInterval
     )
+    private var dockClickReopenGuard = DockClickReopenGuard()
     private var popoverContentReleaseTask: Task<Void, Never>?
     private var popoverContentGeneration: UInt64 = 0
     private var isPopoverClosing = false
@@ -559,6 +560,11 @@ final class StatusBarController: NSObject {
 
     /// Shows the same popover for a Dock icon click, above the clicked icon.
     func togglePopover(anchoredAtScreenPoint point: NSPoint) {
+        if !popover.isShown, dockClickReopenGuard.hasPendingClose {
+            let samePress = dockClickReopenGuard.consumeIfSamePress(mouseDownAt: Self.lastLeftMouseDownTime())
+            popoverToggleGate = PopoverToggleGate(lockout: Self.popoverToggleLockoutInterval)
+            if samePress { return }
+        }
         guard popoverToggleGate.shouldAccept(at: Date()) else { return }
         if popover.isShown {
             closePopover()
@@ -675,6 +681,7 @@ final class StatusBarController: NSObject {
         makesKeyWindow: Bool = true,
         dockInset: NSEdgeInsets = DockReveal.noInset
     ) {
+        dockClickReopenGuard.reset()
         cancelPopoverContentRelease()
         store.setPopoverVisible(true)
         // A retained route is lightweight. Re-enter its detail source before
@@ -974,11 +981,18 @@ final class StatusBarController: NSObject {
         self.popoverAnchorWindow = nil
     }
 
+    private static func lastLeftMouseDownTime() -> TimeInterval {
+        ProcessInfo.processInfo.systemUptime - CGEventSource.secondsSinceLastEventType(
+            .combinedSessionState, eventType: .leftMouseDown
+        )
+    }
+
     private func installPopoverDismissMonitor() {
         removePopoverDismissMonitor()
         popoverDismissMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
+        ) { [weak self] event in
+            let mouseDownAt = event.type == .leftMouseDown ? event.timestamp : nil
             // Read the pointer synchronously: the event is non-Sendable and the
             // pointer may move before the main-actor hop runs.
             let clickLocation = NSEvent.mouseLocation
@@ -992,6 +1006,7 @@ final class StatusBarController: NSObject {
                 // the item's mouse-up toggle would reopen it (issue #224).
                 guard policy.shouldDismiss(at: clickLocation),
                       !self.popover.containsScreenPoint(clickLocation) else { return }
+                self.dockClickReopenGuard.recordClose(mouseDownAt: mouseDownAt)
                 self.popover.performClose(nil)
             }
         }
@@ -1192,6 +1207,9 @@ final class StatusBarController: NSObject {
     }
 
     private func handlePanelDidClose() {
+        if NSEvent.pressedMouseButtons & 1 != 0 {
+            dockClickReopenGuard.recordClose(mouseDownAt: Self.lastLeftMouseDownTime())
+        }
         let popoverWindow = popover.contentViewController?.view.window
         dockActivationLogger.notice(
             """
