@@ -74,12 +74,15 @@ final class HighPowerModeControllerTests: XCTestCase {
         // The daemon observes the switch still off after the write.
         client.setResult = false
         let controller = HighPowerModeController(client: client, platformSupported: true)
+        var confirmed: Bool?
+        controller.onSuccessfulWrite = { confirmed = $0 }
         controller.setEnabled(true)
         await waitUntil { controller.hasProbed }
 
         controller.setHighPowerMode(true)
         await waitUntil { !controller.isApplying }
 
+        XCTAssertEqual(confirmed, false)
         XCTAssertEqual(client.setCallCount, 1)
         XCTAssertEqual(client.lastSetValue, true)
         XCTAssertFalse(controller.isHighPowerMode, "the reply is authoritative, not the request")

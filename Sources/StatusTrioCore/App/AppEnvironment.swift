@@ -460,7 +460,7 @@ final class AppEnvironment {
             systemPowers: store.powerSampling.$systemPower
                 .removeDuplicates()
                 .eraseToAnyPublisher(),
-            highPowerModes: store.highPowerMode.$isHighPowerMode
+            highPowerModes: store.highPowerModeReadOnly.$isHighPowerMode
                 .removeDuplicates()
                 .eraseToAnyPublisher(),
             resolveInputs: { snapshot in
