@@ -344,6 +344,7 @@ struct CoreAudioInputHardware: AudioInputHardware {
       && client.isDevice(id)
       && client.isAlive(id) == true
       && client.isHidden(id) == false
+      && client.uid(id)?.hasPrefix("com.statustrio.application-audio.") != true
       && client.canBeDefaultInput(id) == true
       && client.inputChannels(id) > 0
   }

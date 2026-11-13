@@ -798,3 +798,20 @@
 "battery.details.condition.normal" = "Normal";
 "battery.details.condition.service" = "Entretien recommandé";
 "battery.details.highPower.unsupported" = "Non pris en charge";
+
+// Application audio mixer
+"appMixer.outputTitle" = "Volume des apps";
+"appMixer.inputTitle" = "Apps utilisant le micro";
+"appMixer.reset" = "Tout réinitialiser";
+"appMixer.unsupported" = "L’audio par app nécessite macOS 14.2 ou ultérieur.";
+"appMixer.inputReadOnly" = "Apps utilisant une entrée audio. Réglez le micro avec les commandes du périphérique.";
+"appMixer.permission" = "Activez le réglage audio par app. Le premier réglage peut demander l’autorisation d’enregistrer l’audio système.";
+"appMixer.enable" = "Activer le mixeur";
+"appMixer.noInput" = "Aucune app n’utilise d’entrée audio.";
+"appMixer.noOutput" = "Aucune app ne lit de son.";
+"appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
+"appMixer.mute" = "Couper le son";
+"appMixer.unmute" = "Rétablir le son";
+"appMixer.routeUnavailable" = "Cette sortie ne peut pas être réglée indépendamment.";
+
+"settings.audio.applicationMixer.description" = "Affiche les panneaux des apps au survol des titres Volume ou Microphone. La réinitialisation laisse la fonction activée.";

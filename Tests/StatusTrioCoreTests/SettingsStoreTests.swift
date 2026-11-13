@@ -6,6 +6,17 @@ import XCTest
 
 @MainActor
 final class SettingsStoreTests: XCTestCase {
+    func testApplicationAudioMixerDefaultsOffAndPersistsExplicitOptIn() {
+        let suite = makeSuite()
+        defer { clear(suite) }
+        let first = SettingsStore(defaults: suite.defaults)
+        XCTAssertFalse(first.applicationAudioMixerEnabled)
+        first.applicationAudioMixerEnabled = true
+        XCTAssertTrue(SettingsStore(defaults: suite.defaults).applicationAudioMixerEnabled)
+        first.applicationAudioMixerEnabled = false
+        XCTAssertFalse(SettingsStore(defaults: suite.defaults).applicationAudioMixerEnabled)
+    }
+
     func testDefaultsMatchSpecifiedRange() {
         XCTAssertEqual(SettingsStore.iconSizeRange, 16...36)
 

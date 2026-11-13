@@ -798,3 +798,20 @@
 "battery.details.condition.normal" = "正常";
 "battery.details.condition.service" = "建议维修";
 "battery.details.highPower.unsupported" = "不支持";
+
+// Application audio mixer
+"appMixer.outputTitle" = "应用音量";
+"appMixer.inputTitle" = "麦克风使用应用";
+"appMixer.reset" = "全部重置";
+"appMixer.unsupported" = "应用音频需要 macOS 14.2 或更高版本。";
+"appMixer.inputReadOnly" = "这里显示正在使用音频输入的应用。麦克风音量请在设备行中调整。";
+"appMixer.permission" = "启用后可单独调整应用音量。首次调整时，系统可能请求音频录制权限。";
+"appMixer.enable" = "启用应用混音";
+"appMixer.noInput" = "当前没有应用使用音频输入。";
+"appMixer.noOutput" = "当前没有应用播放音频。";
+"appMixer.failed" = "无法调整应用音频。请重试或重置混音。";
+"appMixer.mute" = "静音";
+"appMixer.unmute" = "取消静音";
+"appMixer.routeUnavailable" = "此输出路径暂不支持独立调节。";
+
+"settings.audio.applicationMixer.description" = "开启后，悬浮在音量或麦克风标题区域可打开应用子面板。重置仅恢复各应用音量，不关闭此功能。";

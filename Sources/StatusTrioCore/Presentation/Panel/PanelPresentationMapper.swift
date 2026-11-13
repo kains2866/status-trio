@@ -260,7 +260,9 @@ enum PanelPresentationMapper {
         // power"; once a real estimate arrives the branch above takes over.
         switch chargeToFullNow {
         case .applying, .chargingToFull, .cancelling:
-            return localization.string(.batteryStateCalculatingTimeToFull)
+            if battery.isConnectedToPower {
+                return localization.string(.batteryStateCalculatingTimeToFull)
+            }
         case .hidden,
              .available,
              .failed,

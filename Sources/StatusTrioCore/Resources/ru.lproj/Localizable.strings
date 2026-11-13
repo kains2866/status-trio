@@ -798,3 +798,20 @@
 "battery.details.condition.normal" = "Норма";
 "battery.details.condition.service" = "Рекомендуется обслуживание";
 "battery.details.highPower.unsupported" = "Не поддерживается";
+
+// Application audio mixer
+"appMixer.outputTitle" = "Громкость приложений";
+"appMixer.inputTitle" = "Приложения с микрофоном";
+"appMixer.reset" = "Сбросить всё";
+"appMixer.unsupported" = "Для аудио приложений требуется macOS 14.2 или новее.";
+"appMixer.inputReadOnly" = "Приложения, использующие аудиовход. Громкость микрофона регулируется в настройках устройства.";
+"appMixer.permission" = "Включите регулировку по приложениям. При первом изменении может потребоваться разрешение на запись системного звука.";
+"appMixer.enable" = "Включить микшер";
+"appMixer.noInput" = "Нет приложений, использующих аудиовход.";
+"appMixer.noOutput" = "Нет приложений, воспроизводящих звук.";
+"appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
+"appMixer.mute" = "Выключить звук";
+"appMixer.unmute" = "Включить звук";
+"appMixer.routeUnavailable" = "Этот выход нельзя регулировать отдельно.";
+
+"settings.audio.applicationMixer.description" = "Показывать панели приложений при наведении на заголовок громкости или микрофона. Сброс не отключает функцию.";

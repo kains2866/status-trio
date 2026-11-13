@@ -100,3 +100,54 @@ struct PopoverDismissalPolicyTests {
     }
 }
 
+
+struct DockClickReopenGuardTests {
+    @Test func suppressesOnlyTheClosingPressAndThenAllowsNextClick() {
+        var guardState = DockClickReopenGuard()
+        guardState.recordClose(mouseDownAt: 10)
+        let samePress = guardState.consumeIfSamePress(mouseDownAt: 10.001)
+        let nextPress = guardState.consumeIfSamePress(mouseDownAt: 10.1)
+        #expect(samePress)
+        #expect(!nextPress)
+    }
+
+    @Test func aNewPressImmediatelyAfterOutsideDismissalCanOpen() {
+        var guardState = DockClickReopenGuard()
+        guardState.recordClose(mouseDownAt: 10)
+        let suppressed = guardState.consumeIfSamePress(mouseDownAt: 10.1)
+        #expect(!suppressed)
+    }
+
+    @Test func suppressingCloseClickAllowsImmediateNextToggle() {
+        let start = Date(timeIntervalSince1970: 100)
+        var gate = PopoverToggleGate(lockout: 0.25)
+        let opened = gate.shouldAccept(at: start)
+        var guardState = DockClickReopenGuard()
+        guardState.recordClose(mouseDownAt: 10)
+        let suppressClose = guardState.consumeIfSamePress(mouseDownAt: 10)
+        if suppressClose { gate = PopoverToggleGate(lockout: 0.25) }
+        let openedAgain = gate.shouldAccept(at: start.addingTimeInterval(0.15))
+        #expect(opened && suppressClose && openedAgain)
+    }
+
+    @Test func differentPressAfterOutsideCloseAllowsImmediateToggle() {
+        let start = Date(timeIntervalSince1970: 100)
+        var gate = PopoverToggleGate(lockout: 0.25)
+        let opened = gate.shouldAccept(at: start)
+        var guardState = DockClickReopenGuard()
+        guardState.recordClose(mouseDownAt: 10)
+        let hadPendingClose = guardState.hasPendingClose
+        let samePress = guardState.consumeIfSamePress(mouseDownAt: 10.1)
+        if hadPendingClose { gate = PopoverToggleGate(lockout: 0.25) }
+        let openedAgain = gate.shouldAccept(at: start.addingTimeInterval(0.15))
+        #expect(opened && !samePress && openedAgain)
+    }
+
+    @Test func missingPressDoesNotSuppressOpening() {
+        var guardState = DockClickReopenGuard()
+        guardState.recordClose(mouseDownAt: nil)
+        #expect(guardState.hasPendingClose)
+        let suppressed = guardState.consumeIfSamePress(mouseDownAt: 10)
+        #expect(!suppressed)
+    }
+}

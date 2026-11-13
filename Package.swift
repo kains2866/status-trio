@@ -19,6 +19,7 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle"),
                 "DDCPrivateAPI",
                 "PowerUIPrivateAPI",
+                "ApplicationAudioDSP",
                 "PowerHelperProtocol"
             ],
             path: "Sources/StatusTrioCore",
@@ -60,6 +61,12 @@ let package = Package(
             publicHeadersPath: "include"
         ),
         .target(
+            name: "ApplicationAudioDSP",
+            path: "Sources/ApplicationAudioDSP",
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("CoreAudio")]
+        ),
+        .target(
             name: "PowerUIPrivateAPI",
             path: "Sources/PowerUIPrivateAPI",
             publicHeadersPath: "include"
@@ -71,7 +78,7 @@ let package = Package(
         ),
         .testTarget(
             name: "StatusTrioCoreTests",
-            dependencies: ["StatusTrioCore", "PowerHelperProtocol"],
+            dependencies: ["StatusTrioCore", "PowerHelperProtocol", "ApplicationAudioDSP"],
             path: "Tests/StatusTrioCoreTests"
         ),
         // The daemon owns its own lifetime, so its idle policy is exercised

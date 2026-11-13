@@ -960,7 +960,7 @@ final class ChargeToFullNowControllerTests: XCTestCase {
         XCTAssertNil(store.load())
     }
 
-    func testCancelRemainsAvailableWhenFullOrUnplugged() async {
+    func testUnpluggedFullBatteryHidesChargingRow() async {
         let backend = StubBatteryChargeController(deviceState: .activeLimit)
         let controller = ChargeToFullNowController(backend: backend)
         controller.update(demand())
@@ -976,8 +976,7 @@ final class ChargeToFullNowControllerTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(controller.presentation, .chargingToFull)
-        XCTAssertTrue(controller.presentation.showsButton)
+        XCTAssertEqual(controller.presentation, .hidden)
     }
 
     func testDuplicateCancelClicksProduceOneRestoreRequest() async {
@@ -1051,6 +1050,52 @@ final class ChargeToFullNowControllerTests: XCTestCase {
         XCTAssertNil(
             UserDefaultsChargeToFullNowSessionStore(defaults: defaults).load()
         )
+    }
+
+    func testWriteFinishingAfterUnplugDoesNotResurrectChargingRow() async {
+        let backend = StubBatteryChargeController(deviceState: .activeLimit)
+        let controller = ChargeToFullNowController(backend: backend)
+        controller.update(demand())
+        controller.requestChargeToFullNow()
+        await backend.waitUntilWriteStarts()
+        controller.update(demand(connectedToPower: false))
+        backend.finishWrite(.success)
+        await waitUntil { controller.presentation != .applying }
+        XCTAssertEqual(controller.presentation, .hidden)
+    }
+
+    func testUnpluggingWhileWriteIsInFlightHidesRowEvenIfWriteFails() async {
+        let backend = StubBatteryChargeController(deviceState: .activeLimit)
+        let controller = ChargeToFullNowController(backend: backend)
+        controller.update(demand())
+        controller.requestChargeToFullNow()
+        await backend.waitUntilWriteStarts()
+        controller.update(demand(connectedToPower: false))
+        XCTAssertEqual(controller.presentation, .hidden)
+        backend.finishWrite(.failure)
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(controller.presentation, .hidden)
+    }
+
+    func testUnpluggingHidesChargingRowWithoutDiscardingOverrideSession() {
+        let store = VolatileChargeToFullNowSessionStore(
+            session: ChargeToFullNowSession(originalLimit: 80, acceptedAt: Date())
+        )
+        let backend = StubBatteryChargeController(deviceState: ChargeToFullNowDeviceState(
+            mclEnabledRawValue: 3, mclLimit: 80, chargingOverrideAllowed: false
+        ))
+        let controller = ChargeToFullNowController(backend: backend, sessionStore: store)
+        controller.update(demand(percentage: 96, isCharging: true))
+        XCTAssertEqual(controller.presentation, .chargingToFull)
+
+        for percentage in [96, 100] {
+            controller.update(demand(connectedToPower: false, percentage: percentage))
+            XCTAssertEqual(controller.presentation, .hidden)
+            XCTAssertNotNil(store.load())
+        }
+
+        controller.update(demand(percentage: 96, isCharging: true))
+        XCTAssertEqual(controller.presentation, .chargingToFull)
     }
 
     private func beginCharge(

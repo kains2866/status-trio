@@ -42,6 +42,8 @@ final class StatusBarController: NSObject {
 
     private let statusItem: NSStatusItem
     private let popover = AnchoredStatusPanel()
+    private let applicationAudioMixer = ApplicationAudioMixerController()
+    private var applicationAudioMixerSettingsCancellable: AnyCancellable?
     private let store: SystemStatusStore
     private let settings: SettingsStore
     private let panelActions: StatusPanelActions
@@ -155,6 +157,7 @@ final class StatusBarController: NSObject {
     private var popoverToggleGate = PopoverToggleGate(
         lockout: StatusBarController.popoverToggleLockoutInterval
     )
+    private var dockClickReopenGuard = DockClickReopenGuard()
     private var popoverContentReleaseTask: Task<Void, Never>?
     private var popoverContentGeneration: UInt64 = 0
     private var isPopoverClosing = false
@@ -261,6 +264,10 @@ final class StatusBarController: NSObject {
         self.latestIconOutput = iconPresentation.output
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
+
+        applicationAudioMixerSettingsCancellable = settings.$applicationAudioMixerEnabled
+            .removeDuplicates()
+            .sink { [weak self] enabled in self?.applicationAudioMixer.setEnabled(enabled) }
 
         statusItem.isVisible = isVisible
         configureButton()
@@ -480,6 +487,8 @@ final class StatusBarController: NSObject {
         }
     }
 
+    func stopApplicationAudioMixer() { applicationAudioMixer.stop() }
+
     private func configurePopover() {
         // The panel replaces NSPopover (issue #186); close teardown runs through
         // the panel's own callback instead of NSPopoverDelegate.
@@ -515,6 +524,7 @@ final class StatusBarController: NSObject {
                 dismissPanel: { [weak self] in self?.closePopover() },
                 contentMeasurementID: measurementID
             )
+            .environment(\.applicationAudioMixer, applicationAudioMixer)
         }
         let hostingController = StatusPanelHostingController(rootView: rootView)
         // StatusPanelLayoutMetrics owns the panel height; preferred sizing here
@@ -559,6 +569,11 @@ final class StatusBarController: NSObject {
 
     /// Shows the same popover for a Dock icon click, above the clicked icon.
     func togglePopover(anchoredAtScreenPoint point: NSPoint) {
+        if !popover.isShown, dockClickReopenGuard.hasPendingClose {
+            let samePress = dockClickReopenGuard.consumeIfSamePress(mouseDownAt: Self.lastLeftMouseDownTime())
+            popoverToggleGate = PopoverToggleGate(lockout: Self.popoverToggleLockoutInterval)
+            if samePress { return }
+        }
         guard popoverToggleGate.shouldAccept(at: Date()) else { return }
         if popover.isShown {
             closePopover()
@@ -675,6 +690,7 @@ final class StatusBarController: NSObject {
         makesKeyWindow: Bool = true,
         dockInset: NSEdgeInsets = DockReveal.noInset
     ) {
+        dockClickReopenGuard.reset()
         cancelPopoverContentRelease()
         store.setPopoverVisible(true)
         // A retained route is lightweight. Re-enter its detail source before
@@ -974,11 +990,18 @@ final class StatusBarController: NSObject {
         self.popoverAnchorWindow = nil
     }
 
+    private static func lastLeftMouseDownTime() -> TimeInterval {
+        ProcessInfo.processInfo.systemUptime - CGEventSource.secondsSinceLastEventType(
+            .combinedSessionState, eventType: .leftMouseDown
+        )
+    }
+
     private func installPopoverDismissMonitor() {
         removePopoverDismissMonitor()
         popoverDismissMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
+        ) { [weak self] event in
+            let mouseDownAt = event.type == .leftMouseDown ? event.timestamp : nil
             // Read the pointer synchronously: the event is non-Sendable and the
             // pointer may move before the main-actor hop runs.
             let clickLocation = NSEvent.mouseLocation
@@ -992,6 +1015,7 @@ final class StatusBarController: NSObject {
                 // the item's mouse-up toggle would reopen it (issue #224).
                 guard policy.shouldDismiss(at: clickLocation),
                       !self.popover.containsScreenPoint(clickLocation) else { return }
+                self.dockClickReopenGuard.recordClose(mouseDownAt: mouseDownAt)
                 self.popover.performClose(nil)
             }
         }
@@ -1051,6 +1075,10 @@ final class StatusBarController: NSObject {
 
         // 2. A scrollable scroll view under the pointer owns the wheel.
         if isPointerOverScrollableScrollView(event) { return false }
+
+        // Unregistered controls and empty areas in child panels must not adjust
+        // the parent output volume. Registered overflow sliders were handled above.
+        guard event.window === popover else { return false }
 
         // 3. Panel-wide fallback to the output volume (default preference).
         guard settings.popupVolumeScrollScope == .panel,
@@ -1192,6 +1220,10 @@ final class StatusBarController: NSObject {
     }
 
     private func handlePanelDidClose() {
+        applicationAudioMixer.setPanelVisible(false)
+        if NSEvent.pressedMouseButtons & 1 != 0 {
+            dockClickReopenGuard.recordClose(mouseDownAt: Self.lastLeftMouseDownTime())
+        }
         let popoverWindow = popover.contentViewController?.view.window
         dockActivationLogger.notice(
             """

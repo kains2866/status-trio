@@ -156,6 +156,7 @@ final class AppEnvironment {
     }
 
     func stop() {
+        statusBarController.stopApplicationAudioMixer()
         memoryPressureMonitor.stop()
         memoryPressureMonitor.onPressure = nil
         telemetryReporter.stop()

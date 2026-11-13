@@ -798,3 +798,20 @@
 "battery.details.condition.normal" = "정상";
 "battery.details.condition.service" = "서비스 권장";
 "battery.details.highPower.unsupported" = "지원 안 됨";
+
+// Application audio mixer
+"appMixer.outputTitle" = "앱 음량";
+"appMixer.inputTitle" = "마이크 사용 앱";
+"appMixer.reset" = "모두 초기화";
+"appMixer.unsupported" = "앱 오디오는 macOS 14.2 이상이 필요합니다.";
+"appMixer.inputReadOnly" = "오디오 입력을 사용하는 앱입니다. 마이크 음량은 기기 컨트롤에서 조절하세요.";
+"appMixer.permission" = "앱별 음량 조절을 활성화합니다. 첫 조절 시 시스템 오디오 녹음 권한이 요청될 수 있습니다.";
+"appMixer.enable" = "앱 믹서 활성화";
+"appMixer.noInput" = "오디오 입력을 사용하는 앱이 없습니다.";
+"appMixer.noOutput" = "오디오를 재생하는 앱이 없습니다.";
+"appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
+"appMixer.mute" = "음소거";
+"appMixer.unmute" = "음소거 해제";
+"appMixer.routeUnavailable" = "이 출력 경로는 개별 조절을 지원하지 않습니다.";
+
+"settings.audio.applicationMixer.description" = "음량 또는 마이크 제목에 마우스를 올리면 앱 패널이 열립니다. 초기화해도 기능은 켜진 상태로 유지됩니다.";

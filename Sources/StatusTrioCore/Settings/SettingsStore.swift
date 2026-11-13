@@ -177,6 +177,7 @@ final class SettingsStore: ObservableObject {
     /// after that, a stored list without `.vpn` means the user switched the row
     /// off, and that choice has to survive every later launch.
     static let vpnPopupSectionIntroducedDefaultsKey = "vpnPopupSectionIntroduced.v1"
+    static let applicationAudioMixerEnabledDefaultsKey = "applicationAudioMixerEnabled"
     static let popupScrollAdjustsVolumeDefaultsKey = "popupScrollAdjustsVolume"
     static let defaultPopupScrollAdjustsVolume = true
     static let popupVolumeScrollScopeDefaultsKey = "popupVolumeScrollScope"
@@ -1082,6 +1083,10 @@ final class SettingsStore: ObservableObject {
                 forKey: Self.enabledPopupSectionsDefaultsKey
             )
         }
+    }
+
+    @Published var applicationAudioMixerEnabled: Bool {
+        didSet { defaults.set(applicationAudioMixerEnabled, forKey: Self.applicationAudioMixerEnabledDefaultsKey) }
     }
 
     @Published var popupScrollAdjustsVolume: Bool {
@@ -2050,6 +2055,9 @@ final class SettingsStore: ObservableObject {
             }
             defaults.set(true, forKey: Self.vpnPopupSectionIntroducedDefaultsKey)
         }
+        self.applicationAudioMixerEnabled = defaults.object(
+            forKey: Self.applicationAudioMixerEnabledDefaultsKey
+        ) as? Bool ?? false
         self.popupScrollAdjustsVolume = defaults.object(
             forKey: Self.popupScrollAdjustsVolumeDefaultsKey
         ) as? Bool ?? Self.defaultPopupScrollAdjustsVolume
