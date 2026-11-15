@@ -6,6 +6,40 @@
     <description>Most recent changes for Status Trio.</description>
     <language>en</language>
     <item>
+      <title xml:lang="en">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="ar">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="de">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="es">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="fr">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="it">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="ja">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="ko">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="pt-BR">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="ru">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="zh-Hans">Personal Version 1.9.7 (Build 54)</title>
+      <title xml:lang="zh-Hant">Personal Version 1.9.7 (Build 54)</title>
+      <pubDate>Sun, 15 Nov 2026 07:24:09 +0000</pubDate>
+      <sparkle:version>54</sparkle:version>
+      <sparkle:shortVersionString>1.9.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[<ul><li>Optional red footer indicators for muted output and, independently, zero volume; both default off.</li><li>Choose inline or side-panel application mixer; inline lists have bounded scrolling.</li><li>Keep recognized paused apps available for volume and mute adjustments; changes apply when playback resumes.</li><li>Real audio, AirPods and inline scrolling still need hardware validation; the mixer retains its existing route and macOS limitations.</li></ul>]]></description>
+      <description xml:lang="ar"><![CDATA[<div dir="rtl"><ul><li>مؤشران أحمران مستقلان للكتم ومستوى الصوت الصفري، معطلان افتراضياً.</li><li>يمكن عرض مزج التطبيقات داخل اللوحة الرئيسية أو جانبها؛ القوائم المضمنة محدودة الارتفاع وقابلة للتمرير.</li><li>تبقى التطبيقات المتوقفة مؤقتاً والقابلة للتعرف متاحة لضبط الصوت والكتم، وتطبق التغييرات عند الاستئناف.</li><li>يلزم اختبار الصوت وAirPods والتمرير على جهاز فعلي؛ تبقى قيود مسارات الإخراج وmacOS الحالية.</li></ul></div>]]></description>
+      <description xml:lang="de"><![CDATA[<ul><li>Optionale unabhängige rote Anzeigen bei Stummschaltung und Lautstärke null; standardmäßig aus.</li><li>App-Mixer im Hauptpanel oder Seitenpanel mit begrenzt scrollenden Listen.</li><li>Erkannte pausierte Apps bleiben für Lautstärke und Stummschaltung verfügbar; Änderungen gelten bei Wiedergabe.</li><li>Audio, AirPods und Scrollen erfordern reale Gerätetests; bestehende Routen- und macOS-Grenzen gelten.</li></ul>]]></description>
+      <description xml:lang="es"><![CDATA[<ul><li>Indicadores rojos independientes para silencio y volumen cero, desactivados por defecto.</li><li>Mezclador en el panel principal o lateral; listas integradas con altura limitada y desplazamiento.</li><li>Las apps reconocidas en pausa siguen disponibles para ajustar sonido y silencio; los cambios se aplican al reanudar.</li><li>Audio, AirPods y desplazamiento requieren pruebas reales; continúan los límites de salida y macOS.</li></ul>]]></description>
+      <description xml:lang="fr"><![CDATA[<ul><li>Indicateurs rouges indépendants pour la sourdine et le volume nul, désactivés par défaut.</li><li>Mixeur intégré au panneau principal ou latéral ; listes intégrées défilantes de hauteur limitée.</li><li>Les apps reconnues en pause restent réglables ; les changements s’appliquent à la reprise.</li><li>Audio, AirPods et défilement restent à vérifier sur appareil ; les limites de sortie et de macOS subsistent.</li></ul>]]></description>
+      <description xml:lang="it"><![CDATA[<ul><li>Indicatori rossi indipendenti per audio disattivato e volume zero, inizialmente spenti.</li><li>Mixer nel pannello principale o laterale; elenchi integrati a scorrimento e altezza limitata.</li><li>Le app riconosciute in pausa restano regolabili; le modifiche si applicano alla ripresa.</li><li>Audio, AirPods e scorrimento richiedono prove reali; restano i limiti di uscita e macOS.</li></ul>]]></description>
+      <description xml:lang="ja"><![CDATA[<ul><li>消音時と音量ゼロ時の赤い下部表示をそれぞれ選択可能にしました。初期状態はオフです。</li><li>アプリミキサーをメインパネル内またはサイドパネルに表示できます。内蔵リストは高さ制限付きでスクロールします。</li><li>認識済みの一時停止中アプリも音量と消音を設定でき、再生再開時に反映されます。</li><li>実際の音声、AirPods、スクロールは実機確認が必要です。既存の出力経路とmacOSの制限は変わりません。</li></ul>]]></description>
+      <description xml:lang="ko"><![CDATA[<ul><li>음소거와 음량 0의 하단 빨간 표시를 각각 선택할 수 있으며 기본값은 꺼짐입니다.</li><li>앱 믹서를 기본 패널 또는 측면 패널에 표시합니다. 내부 목록은 높이가 제한되며 스크롤됩니다.</li><li>인식된 일시 정지 앱의 음량과 음소거를 설정하면 재생 재개 시 적용됩니다.</li><li>실제 오디오, AirPods 및 스크롤은 실기기 확인이 필요하며 기존 출력 경로와 macOS 제한이 유지됩니다.</li></ul>]]></description>
+      <description xml:lang="pt-BR"><![CDATA[<ul><li>Indicadores vermelhos independentes para silêncio e volume zero, desativados por padrão.</li><li>Mixer no painel principal ou lateral; listas integradas têm altura limitada e rolagem.</li><li>Apps identificados em pausa permanecem ajustáveis; alterações valem quando a reprodução retorna.</li><li>Áudio, AirPods e rolagem exigem teste real; os limites existentes de saída e macOS permanecem.</li></ul>]]></description>
+      <description xml:lang="ru"><![CDATA[<ul><li>Независимые красные индикаторы для отключённого звука и нулевой громкости, по умолчанию выключены.</li><li>Микшер в основной или боковой панели; встроенные списки ограничены по высоте и прокручиваются.</li><li>Распознанные приостановленные приложения остаются доступными для настройки; изменения применяются при возобновлении.</li><li>Аудио, AirPods и прокрутку нужно проверить на устройстве; прежние ограничения маршрутов и macOS сохраняются.</li></ul>]]></description>
+      <description xml:lang="zh-Hans"><![CDATA[<ul><li>新增静音和零音量时底部红色指示的独立开关，默认关闭。</li><li>应用混音器可选择主面板内显示或侧向子面板；内联列表高度受限并可滚动。</li><li>已识别的暂停应用保持可见，可预设音量和静音，恢复播放后生效。</li><li>真实音频、AirPods 与内联滚动仍需实机验证；混音器沿用现有输出路径和 macOS 限制。</li></ul>]]></description>
+      <description xml:lang="zh-Hant"><![CDATA[<ul><li>新增靜音及零音量底部紅色指示的獨立開關，預設關閉。</li><li>應用程式混音器可選主面板內顯示或側向子面板；內嵌列表高度受限且可捲動。</li><li>已識別的暫停程式保持可見，可預設音量及靜音，恢復播放後生效。</li><li>真實音訊、AirPods 與內嵌捲動仍需實機驗證；混音器沿用現有輸出路徑及 macOS 限制。</li></ul>]]></description>
+      <enclosure url="https://github.com/kains2866/status-trio/releases/download/v1.9.7/StatusTrio-1.9.7.dmg"
+                 type="application/octet-stream"
+                 sparkle:edSignature="/5agmOe3aDeztqYXAYydW0ePGFPkNJhbCL/yIiDijLJlSgAnmgtnKl+QyC2byJDlTIxZ7AtSY6SuO8IVpJ9NDw=="
+                 length="19388298" />
+    </item>
+    <item>
       <title xml:lang="en">Personal Version 1.9.6 (Build 53)</title>
       <title xml:lang="ar">الإصدار الشخصي 1.9.6 (البنية 53)</title>
       <title xml:lang="de">Persönliche Version 1.9.6 (Build 53)</title>
