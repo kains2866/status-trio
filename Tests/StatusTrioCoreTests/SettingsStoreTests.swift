@@ -17,6 +17,32 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(SettingsStore(defaults: suite.defaults).applicationAudioMixerEnabled)
     }
 
+    func testRedVolumeIndicatorsDefaultOffAndPersistIndependently() {
+        let suite = makeSuite()
+        defer { clear(suite) }
+        let first = SettingsStore(defaults: suite.defaults)
+        XCTAssertFalse(first.showsRedVolumeWhenMuted)
+        XCTAssertFalse(first.showsRedVolumeWhenZero)
+        first.showsRedVolumeWhenMuted = true
+        let second = SettingsStore(defaults: suite.defaults)
+        XCTAssertTrue(second.showsRedVolumeWhenMuted)
+        XCTAssertFalse(second.showsRedVolumeWhenZero)
+        second.showsRedVolumeWhenZero = true
+        let third = SettingsStore(defaults: suite.defaults)
+        XCTAssertTrue(third.volumeIconOptions.showsRedWhenMuted)
+        XCTAssertTrue(third.volumeIconOptions.showsRedWhenZero)
+    }
+
+    func testApplicationMixerPresentationDefaultsToSubmenuAndPersistsInline() {
+        let suite = makeSuite()
+        defer { clear(suite) }
+        let first = SettingsStore(defaults: suite.defaults)
+        XCTAssertEqual(first.applicationAudioMixerPresentation, .submenu)
+        first.applicationAudioMixerPresentation = .inline
+        XCTAssertEqual(SettingsStore(defaults: suite.defaults).applicationAudioMixerPresentation, .inline)
+        XCTAssertFalse(first.applicationAudioMixerEnabled)
+    }
+
     func testDefaultsMatchSpecifiedRange() {
         XCTAssertEqual(SettingsStore.iconSizeRange, 16...36)
 

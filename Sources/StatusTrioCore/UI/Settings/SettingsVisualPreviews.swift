@@ -43,11 +43,12 @@ struct MenuBarPreviewBackdrop: View {
     }
 }
 
-/// Live status with a guaranteed audible volume reading, so a preview card still
-/// shows meaningful artwork while the machine is muted or has no volume source.
+/// Keep opted-in mute/zero alerts truthful; otherwise use an audible sample so
+/// style cards show meaningful artwork without a volume source.
 @MainActor
-private func menuBarPreviewStatus(from statusStore: SystemStatusStore) -> MenuBarStatus {
+private func menuBarPreviewStatus(from statusStore: SystemStatusStore, volumeOptions: VolumeIconOptions) -> MenuBarStatus {
     let base = MenuBarStatus(snapshot: statusStore.snapshot)
+    if volumeOptions.showsRedWhenMuted || volumeOptions.showsRedWhenZero { return base }
     let scalar = base.volume.scalar ?? 0
     let volume = MenuBarVolumeStatus(
         scalar: scalar > 0 && !base.volume.isMuted ? scalar : 0.75,
@@ -72,13 +73,15 @@ struct VolumeIndicatorPreview: View {
 
     var previewScene: IconSceneState {
         IconPreviewScene.make(
-            status: menuBarPreviewStatus(from: statusStore),
+            status: menuBarPreviewStatus(from: statusStore, volumeOptions: store.volumeIconOptions),
             configuration: IconPresentationConfiguration(
                 battery: store.batteryIconOptions,
                 connection: store.connectionIconOptions,
                 volume: VolumeIconOptions(
                     displayStyle: style,
-                    ringStrokeScale: store.ringStrokeStyle.scale
+                    ringStrokeScale: store.ringStrokeStyle.scale,
+                    showsRedWhenMuted: store.volumeIconOptions.showsRedWhenMuted,
+                    showsRedWhenZero: store.volumeIconOptions.showsRedWhenZero
                 ),
                 bluetooth: .standard
             )
@@ -261,7 +264,7 @@ struct RingStrokeStylePreview: View {
 
     var previewScene: IconSceneState {
         IconPreviewScene.make(
-            status: menuBarPreviewStatus(from: statusStore),
+            status: menuBarPreviewStatus(from: statusStore, volumeOptions: store.volumeIconOptions),
             configuration: IconPresentationConfiguration(
                 battery: BatteryIconOptions(
                     showsPercentage: store.showsBatteryPercentage,
@@ -278,7 +281,9 @@ struct RingStrokeStylePreview: View {
                 connection: store.connectionIconOptions,
                 volume: VolumeIconOptions(
                     displayStyle: store.volumeDisplayStyle,
-                    ringStrokeScale: style.scale
+                    ringStrokeScale: style.scale,
+                    showsRedWhenMuted: store.volumeIconOptions.showsRedWhenMuted,
+                    showsRedWhenZero: store.volumeIconOptions.showsRedWhenZero
                 ),
                 bluetooth: .standard
             )

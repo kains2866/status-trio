@@ -8,6 +8,7 @@ final class ApplicationAudioMixerController: ObservableObject {
     @Published private(set) var rows: [ApplicationAudioMixerRow] = []
     @Published private(set) var errorMessage: String?
     @Published private(set) var isEnabled = false
+    @Published var presentation: ApplicationAudioMixerPresentation = .submenu
     let isSupported: Bool
 
     private struct ActiveSession {
@@ -29,8 +30,12 @@ final class ApplicationAudioMixerController: ObservableObject {
     // One failed owner per app row; that row cannot start again until explicit cleanup succeeds.
     private var retiredSessions: [String: any ApplicationAudioSessionControlling] = [:]
     private var adjustments: [String: SavedAdjustment] = [:]
+    // Includes unadjusted output apps; bounded by verified owner liveness on discovery events.
+    private var knownOutputRows: [String: ApplicationAudioMixerRow] = [:]
     private var snapshots: [ApplicationAudioProcessSnapshot] = []
-    private var isPanelVisible = false
+    private var visibleSurfaces: Set<UUID> = []
+    private let legacySurfaceID = UUID()
+    private var isPanelVisible: Bool { !visibleSurfaces.isEmpty }
     private var isDiscovering = false
     private var observationGeneration = UUID()
 
@@ -56,9 +61,18 @@ final class ApplicationAudioMixerController: ObservableObject {
         self.isOwnerAlive = isOwnerAlive
     }
 
-    func setPanelVisible(_ visible: Bool) {
-        isPanelVisible = visible && isEnabled
+    func setSurfaceVisible(_ visible: Bool, id: UUID) {
+        if visible && isEnabled { visibleSurfaces.insert(id) }
+        else { visibleSurfaces.remove(id) }
         updateDiscoveryDemand()
+    }
+
+    func setPanelVisible(_ visible: Bool) {
+        if visible { setSurfaceVisible(true, id: legacySurfaceID) }
+        else {
+            visibleSurfaces.removeAll()
+            updateDiscoveryDemand()
+        }
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -66,8 +80,10 @@ final class ApplicationAudioMixerController: ObservableObject {
             enable()
         } else {
             isEnabled = false
-            isPanelVisible = false
+            visibleSurfaces.removeAll()
             reset()
+            knownOutputRows = [:]
+            snapshots = []
         }
     }
 
@@ -102,7 +118,7 @@ final class ApplicationAudioMixerController: ObservableObject {
     }
 
     func stop() {
-        isPanelVisible = false
+        visibleSurfaces.removeAll()
         setEnabled(false)
         snapshots = []
         rows = []
@@ -113,6 +129,9 @@ final class ApplicationAudioMixerController: ObservableObject {
               let uid = row.outputDeviceUID, let owner = row.ownerInstanceID else { return }
         if gain == 1 && !muted {
             adjustments.removeValue(forKey: row.id)
+            stopSession(for: row.id)
+        } else if !row.isPlaying {
+            // Paused adjustments are intent only. Never prompt for capture or intercept idle clients.
             stopSession(for: row.id)
         } else if let active = sessions[row.id] {
             active.engine.setGain(muted ? 0 : Float(gain))
@@ -148,7 +167,26 @@ final class ApplicationAudioMixerController: ObservableObject {
         adjustments = adjustments.filter { _, saved in
             liveOwners.contains(saved.ownerInstanceID) || isOwnerAlive(saved.ownerInstanceID)
         }
-        let fresh = ApplicationAudioMixerRows.make(snapshots, enabled: isEnabled, resolve: { identities[$0] })
+        var fresh = ApplicationAudioMixerRows.make(snapshots, enabled: isEnabled, resolve: { identities[$0] })
+        let freshByID = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+        knownOutputRows = knownOutputRows.filter { id, row in
+            guard let owner = row.ownerInstanceID,
+                  liveOwners.contains(owner) || isOwnerAlive(owner) else { return false }
+            // A reused PID or different main-app instance cannot inherit the prior row's route.
+            return freshByID[id].map { $0.ownerInstanceID == owner } ?? true
+        }
+        if isEnabled {
+            for row in fresh where !row.isInput && row.ownerInstanceID != nil {
+                knownOutputRows[row.id] = row
+            }
+            for (id, row) in knownOutputRows where freshByID[id] == nil {
+                fresh.append(row.paused(enabled: isEnabled))
+            }
+            fresh.sort {
+                let comparison = $0.name.localizedStandardCompare($1.name)
+                return comparison == .orderedSame ? $0.id < $1.id : comparison == .orderedAscending
+            }
+        }
         for row in fresh {
             if let saved = adjustments[row.id],
                row.ownerInstanceID != saved.ownerInstanceID || row.routeFingerprint != saved.routeFingerprint {
@@ -158,7 +196,7 @@ final class ApplicationAudioMixerController: ObservableObject {
         }
         let validIDs = Set(fresh.filter { row in
             guard let session = sessions[row.id] else { return false }
-            return row.canAdjust && adjustments[row.id] != nil
+            return row.isPlaying && row.canAdjust && adjustments[row.id] != nil
                 && row.instanceFingerprint == session.fingerprint && row.outputDeviceUID == session.deviceUID
         }.map(\.id))
         for id in Array(sessions.keys) where !validIDs.contains(id) { stopSession(for: id) }
@@ -169,7 +207,7 @@ final class ApplicationAudioMixerController: ObservableObject {
         }
         // Helpers may join/leave while the verified owner app and route remain the same.
         // Rebuild interception with the saved gain, so helper changes cannot cause a loud reset.
-        for row in rows where row.canAdjust && adjustments[row.id] != nil && sessions[row.id] == nil {
+        for row in rows where row.isPlaying && row.canAdjust && adjustments[row.id] != nil && sessions[row.id] == nil {
             apply(gain: row.gain, muted: row.isMuted, to: row)
         }
     }
@@ -192,6 +230,7 @@ final class ApplicationAudioMixerController: ObservableObject {
                     self.stopSessions()
                     self.adjustments = [:]
                     self.snapshots = []
+                    self.knownOutputRows = [:]
                     self.rows = []
                 }
                 self.updateDiscoveryDemand()

@@ -96,6 +96,9 @@ struct VolumeControlsView: View {
                     onToggleMute: { actions.toggleOutputMute(for: $0) }
                 )
             }
+            if let applicationAudioMixer {
+                ApplicationAudioMixerInlineSection(controller: applicationAudioMixer, isInput: false)
+            }
         }
         .onAppear { synchronizeVolume(synchronizationSnapshot) }
         .onChange(of: synchronizationSnapshot) { snapshot in

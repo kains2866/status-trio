@@ -348,16 +348,18 @@ enum IconPresentationMapper {
     ) -> FooterState {
         let finiteScalar = volume.scalar.flatMap { $0.isFinite ? $0 : nil }
         let mayUseBluetoothColor = bluetoothOptions.usesVolumeColor && volume.currentDevice?.isBluetoothAudio == true
+        let showsRed = (options.showsRedWhenMuted && volume.isMuted)
+            || (options.showsRedWhenZero && !volume.isMuted && finiteScalar == 0)
 
         switch options.displayStyle {
         case .dots:
-            let steps = StatusMappings.volumeSteps(scalar: finiteScalar, isMuted: volume.isMuted) ?? 0
-            let color: IconColorRole = mayUseBluetoothColor && steps > 0 ? .bluetooth : .primary
+            let steps = showsRed ? 4 : (StatusMappings.volumeSteps(scalar: finiteScalar, isMuted: volume.isMuted) ?? 0)
+            let color: IconColorRole = showsRed ? .volumeAlert : (mayUseBluetoothColor && steps > 0 ? .bluetooth : .primary)
             return .dots(DotsState(count: 4, activeCount: steps, color: color,
                                    strokeScale: options.ringStrokeScale))
         case .arc:
-            let effectiveProgress = volume.isMuted ? 0 : (finiteScalar ?? 0)
-            let color: IconColorRole = mayUseBluetoothColor && effectiveProgress > 0 ? .bluetooth : .primary
+            let effectiveProgress = showsRed ? 1 : (volume.isMuted ? 0 : (finiteScalar ?? 0))
+            let color: IconColorRole = showsRed ? .volumeAlert : (mayUseBluetoothColor && effectiveProgress > 0 ? .bluetooth : .primary)
             return .arc(ArcState(progress: effectiveProgress, color: color,
                                  strokeScale: options.ringStrokeScale))
         }

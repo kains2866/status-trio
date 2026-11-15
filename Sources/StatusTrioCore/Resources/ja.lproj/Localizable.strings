@@ -808,10 +808,19 @@
 "appMixer.permission" = "アプリごとの音量調整を有効にします。初回の調整時にシステム音声の収録権限が求められる場合があります。";
 "appMixer.enable" = "アプリミキサーを有効化";
 "appMixer.noInput" = "音声入力を使用中のアプリはありません。";
-"appMixer.noOutput" = "音声を再生中のアプリはありません。";
+"appMixer.noOutput" = "音声アプリはまだ検出されていません。";
 "appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
 "appMixer.mute" = "消音";
 "appMixer.unmute" = "消音を解除";
 "appMixer.routeUnavailable" = "この出力経路は個別調整に対応していません。";
 
 "settings.audio.applicationMixer.description" = "音量やマイクの見出しにポインタを置くとアプリのパネルを表示します。リセットしても機能は有効のままです。";
+
+"settingsVolumeRedMuted" = "消音時に赤で表示";
+"settingsVolumeRedMutedDescription" = "出力が消音のとき、4つの赤い点または赤い弧を表示します。";
+"settingsVolumeRedZero" = "音量ゼロのときに赤で表示";
+"settingsVolumeRedZeroDescription" = "消音でなくても音量が正確にゼロなら赤く表示します。";
+"settingsAppMixerPresentation" = "ミキサーの表示場所";
+"settingsAppMixerPresentationDescription" = "サイドパネルまたはデバイス一覧の下に表示します。内蔵リストは高さ240ポイントを超えるとスクロールします。";
+"settingsAppMixerSubmenu" = "サイドパネル";
+"settingsAppMixerInline" = "メインパネル内";

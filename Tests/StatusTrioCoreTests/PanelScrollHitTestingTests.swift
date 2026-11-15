@@ -30,6 +30,14 @@ final class PanelScrollHitTestingTests: XCTestCase {
         )
     }
 
+    func testShortApplicationMixerListNeverAdjustsMasterVolume() {
+        let (root, scrollView) = makeRoot(documentHeight: 40)
+        scrollView.identifier = PanelScrollHitTesting.applicationMixerScrollIdentifier
+        XCTAssertTrue(PanelScrollHitTesting.pointerIsOverScrollableScrollView(
+            at: center(of: scrollView, in: root), in: root
+        ))
+    }
+
     func testPointerOutsideTheScrollViewAdjustsTheVolume() throws {
         let (root, scrollView) = makeRoot(documentHeight: 500)
         let outside = NSPoint(x: 10, y: root.bounds.maxY - 5)

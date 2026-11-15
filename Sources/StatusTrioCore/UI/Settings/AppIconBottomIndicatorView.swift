@@ -47,6 +47,21 @@ struct AppIconBottomIndicatorView: View {
                 subtitle: localization.string(.settingsBluetoothVolumeColorDescription),
                 isOn: $store.usesBluetoothAudioVolumeColor
             )
+
+            SettingsDivider()
+            SettingsToggleRow(
+                symbol: "speaker.slash.fill", tint: .red,
+                title: localization.string(.settingsVolumeRedMuted),
+                subtitle: localization.string(.settingsVolumeRedMutedDescription),
+                isOn: $store.showsRedVolumeWhenMuted
+            )
+            SettingsDivider()
+            SettingsToggleRow(
+                symbol: "speaker.fill", tint: .red,
+                title: localization.string(.settingsVolumeRedZero),
+                subtitle: localization.string(.settingsVolumeRedZeroDescription),
+                isOn: $store.showsRedVolumeWhenZero
+            )
         }
     }
 }

@@ -806,10 +806,19 @@
 "appMixer.permission" = "Enable to adjust application audio. Your first adjustment may request system audio recording access.";
 "appMixer.enable" = "Enable app mixer";
 "appMixer.noInput" = "No apps are using audio input.";
-"appMixer.noOutput" = "No apps are playing audio.";
+"appMixer.noOutput" = "No audio apps detected.";
 "appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
 "appMixer.mute" = "Mute";
 "appMixer.unmute" = "Unmute";
 "appMixer.routeUnavailable" = "This output route cannot be adjusted independently.";
 
 "settings.audio.applicationMixer.description" = "Show app volume and microphone usage panels when hovering over their section headers. Reset restores app levels without turning this feature off.";
+
+"settingsVolumeRedMuted" = "Red indicator when muted";
+"settingsVolumeRedMutedDescription" = "Show four red dots or a red arc when the output is muted.";
+"settingsVolumeRedZero" = "Red indicator at zero volume";
+"settingsVolumeRedZeroDescription" = "Also show red when volume is exactly zero without being muted.";
+"settingsAppMixerPresentation" = "Mixer display location";
+"settingsAppMixerPresentationDescription" = "Show app controls beside the main panel or directly below its device controls. Inline app lists scroll above 240 points.";
+"settingsAppMixerSubmenu" = "Side panel";
+"settingsAppMixerInline" = "Inside main panel";

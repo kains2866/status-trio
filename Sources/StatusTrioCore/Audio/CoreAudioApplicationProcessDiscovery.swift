@@ -152,7 +152,9 @@ private final class CoreAudioApplicationProcessWorker: @unchecked Sendable {
         // Keep idle process identities to distinguish playback pause from exit or PID reuse.
         let bundle = try? readString(id, kAudioProcessPropertyBundleID)
         let inputs = input == 1 ? readDevices(id, scope: kAudioDevicePropertyScopeInput) : ([], true)
-        let outputs = output == 1 ? readDevices(id, scope: kAudioDevicePropertyScopeOutput) : ([], true)
+        // Idle HAL clients may retain their output route. This is a read-only query;
+        // missing/invalid metadata stays incomplete and cannot establish output eligibility.
+        let outputs = readDevices(id, scope: kAudioDevicePropertyScopeOutput)
         return ApplicationAudioProcessSnapshot(objectID: id, pid: pid, bundleID: bundle,
             isRunningInput: input == 1, isRunningOutput: output == 1,
             inputDevices: inputs.0, outputDevices: outputs.0, outputRouteIsComplete: outputs.1)

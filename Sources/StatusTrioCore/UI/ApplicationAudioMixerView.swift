@@ -22,7 +22,7 @@ struct ApplicationAudioMixerHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if controller.isEnabled {
+            if controller.isEnabled && controller.presentation == .submenu {
                 Button { isPresented = true } label: {
                     HStack {
                         Text(title)
@@ -42,7 +42,7 @@ struct ApplicationAudioMixerHeader: View {
             } else {
                 Text(title).font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                if controller.errorMessage != nil {
+                if !controller.isEnabled, controller.errorMessage != nil {
                     Button { controller.reset() } label: {
                         Image(systemName: "arrow.clockwise.circle")
                             .foregroundStyle(.orange)
@@ -61,6 +61,7 @@ struct ApplicationAudioMixerHeader: View {
         .onChange(of: controller.isEnabled) { enabled in
             if !enabled { isPresented = false }
         }
+        .onChange(of: controller.presentation) { _ in isPresented = false }
     }
 }
 
@@ -68,13 +69,16 @@ struct ApplicationAudioMixerView: View {
     @EnvironmentObject private var localization: Localization
     @ObservedObject var controller: ApplicationAudioMixerController
     let isInput: Bool
+    @State private var surfaceID = UUID()
 
     private var rows: [ApplicationAudioMixerRow] { controller.rows.filter { $0.isInput == isInput } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle)).font(.headline)
+                Text(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle))
+                    .font(controller.presentation == .inline ? .caption : .headline)
+                    .foregroundStyle(controller.presentation == .inline ? Color.secondary : Color.primary)
                 Spacer()
                 if !isInput, controller.isEnabled || controller.errorMessage != nil {
                     Button(localization.string(.appMixerReset)) { controller.reset() }
@@ -84,22 +88,32 @@ struct ApplicationAudioMixerView: View {
             if !controller.isSupported {
                 message(.appMixerUnsupported)
             } else {
-                if isInput {
+                if isInput && !rows.isEmpty {
                     message(.appMixerInputReadOnly)
                 }
                 if rows.isEmpty {
                     message(isInput ? .appMixerNoInput : .appMixerNoOutput)
                 }
-                ForEach(rows) { row in
-                    ApplicationAudioMixerRowView(row: row, controller: controller)
+                if controller.presentation == .inline {
+                    ApplicationAudioMixerRowsViewport(rows: rows, controller: controller)
+                } else {
+                    rowsContent
                 }
                 if controller.errorMessage != nil {
                     message(.appMixerFailed)
                 }
             }
         }
-        .onAppear { controller.setPanelVisible(true) }
-        .onDisappear { controller.setPanelVisible(false) }
+        .onAppear { controller.setSurfaceVisible(true, id: surfaceID) }
+        .onDisappear { controller.setSurfaceVisible(false, id: surfaceID) }
+    }
+
+    private var rowsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(rows) { row in
+                ApplicationAudioMixerRowView(row: row, controller: controller)
+            }
+        }
     }
 
     private func message(_ key: LocalizationKey) -> some View {
@@ -184,5 +198,61 @@ private struct ApplicationAudioMixerAppIcon: View {
         .task(id: appURL) {
             icon = appURL.map { NSWorkspace.shared.icon(forFile: $0.path) }
         }
+    }
+}
+
+/// Observes both preferences through the controller without remounting device rows.
+struct ApplicationAudioMixerInlineSection: View {
+    @ObservedObject var controller: ApplicationAudioMixerController
+    let isInput: Bool
+
+    var body: some View {
+        if controller.isEnabled && controller.presentation == .inline {
+            Divider().padding(.vertical, 4)
+            ApplicationAudioMixerView(controller: controller, isInput: isInput)
+        }
+    }
+}
+
+private struct ApplicationAudioMixerRowsViewport: View {
+    let rows: [ApplicationAudioMixerRow]
+    @ObservedObject var controller: ApplicationAudioMixerController
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(rows) { row in
+                    ApplicationAudioMixerRowView(row: row, controller: controller)
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: ApplicationAudioMixerRowsHeight.self, value: geometry.size.height)
+            })
+            .background(ApplicationAudioMixerScrollMarker())
+        }
+        // The outer status panel disables its own scroller while it fits the
+        // screen. This independent capped viewport must remain scrollable.
+        .environment(\.isScrollEnabled, true)
+        .frame(height: min(240, max(rows.isEmpty ? 0 : 32, contentHeight)))
+        .onPreferenceChange(ApplicationAudioMixerRowsHeight.self) { contentHeight = $0 }
+    }
+}
+
+private struct ApplicationAudioMixerRowsHeight: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Prevent the panel-wide volume fallback from treating a short app list as a master-volume wheel.
+private struct ApplicationAudioMixerScrollMarker: NSViewRepresentable {
+    func makeNSView(context: Context) -> Marker { Marker() }
+    func updateNSView(_ view: Marker, context: Context) { view.attach() }
+    final class Marker: NSView {
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); attach() }
+        override func layout() { super.layout(); attach() }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        func attach() { enclosingScrollView?.identifier = PanelScrollHitTesting.applicationMixerScrollIdentifier }
     }
 }

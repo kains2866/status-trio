@@ -75,6 +75,17 @@ struct AudioSectionView: View {
                 isOn: $store.applicationAudioMixerEnabled
             )
             .disabled(!applicationMixerSupported)
+            if store.applicationAudioMixerEnabled {
+                SettingsDivider()
+                SettingsMenuRow(
+                    symbol: "rectangle.split.2x1", tint: .cyan,
+                    title: localization.string(.settingsAppMixerPresentation),
+                    subtitle: localization.string(.settingsAppMixerPresentationDescription),
+                    selection: $store.applicationAudioMixerPresentation,
+                    options: ApplicationAudioMixerPresentation.allCases,
+                    label: { localization.string($0 == .submenu ? .settingsAppMixerSubmenu : .settingsAppMixerInline) }
+                )
+            }
             if !applicationMixerSupported {
                 Text(localization.string(.appMixerUnsupported))
                     .font(.caption).foregroundStyle(.secondary)

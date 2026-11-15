@@ -808,10 +808,19 @@
 "appMixer.permission" = "Ative o controle por app. O primeiro ajuste pode solicitar permissão para gravar o áudio do sistema.";
 "appMixer.enable" = "Ativar mixer de apps";
 "appMixer.noInput" = "Nenhum app usa entrada de áudio.";
-"appMixer.noOutput" = "Nenhum app está reproduzindo áudio.";
+"appMixer.noOutput" = "Nenhum app de áudio detectado.";
 "appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
 "appMixer.mute" = "Silenciar";
 "appMixer.unmute" = "Ativar som";
 "appMixer.routeUnavailable" = "Esta saída não permite ajuste independente.";
 
 "settings.audio.applicationMixer.description" = "Mostra os painéis de apps ao passar sobre os títulos de volume ou microfone. Redefinir mantém o recurso ativado.";
+
+"settingsVolumeRedMuted" = "Indicador vermelho no silêncio";
+"settingsVolumeRedMutedDescription" = "Mostra quatro pontos vermelhos ou um arco vermelho quando a saída está silenciada.";
+"settingsVolumeRedZero" = "Indicador vermelho com volume zero";
+"settingsVolumeRedZeroDescription" = "Mostra vermelho também quando o volume é exatamente zero sem silenciamento.";
+"settingsAppMixerPresentation" = "Local do mixer";
+"settingsAppMixerPresentationDescription" = "Mostra os controles ao lado ou abaixo dos dispositivos. A lista integrada rola acima de 240 pontos de altura.";
+"settingsAppMixerSubmenu" = "Painel lateral";
+"settingsAppMixerInline" = "No painel principal";

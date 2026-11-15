@@ -129,6 +129,41 @@ final class StatusIconPreviewCardTests: XCTestCase {
         )
     }
 
+    func testVisualOptionCardsPreserveEnabledMutedAndZeroRedFooterStates() throws {
+        let suiteName = "StatusTrioCoreTests.RedVolumePreviews.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { TestUserDefaults.removeSuite(named: suiteName) }
+        let settings = SettingsStore(defaults: defaults)
+        for muted in [false, true] {
+            let statusStore = SystemStatusStore(
+                batteryMonitor: EmptyBatteryMonitor(), wifiMonitor: EmptyWiFiMonitor(),
+                volumeMonitor: EmptyVolumeMonitor(),
+                initialSnapshot: StatusSnapshot(battery: .placeholder, wifi: .placeholder,
+                    volume: VolumeStatus(scalar: muted ? 0.5 : 0, isMuted: muted, deviceName: "Output")))
+            settings.showsRedVolumeWhenMuted = muted
+            settings.showsRedVolumeWhenZero = !muted
+            for style in VolumeDisplayStyle.allCases {
+                settings.volumeDisplayStyle = style
+                let volumeCard = VolumeIndicatorPreview(style: style, isDarkBackground: true,
+                    store: settings, statusStore: statusStore)
+                let ringCard = RingStrokeStylePreview(style: .bold, isDarkBackground: false,
+                    store: settings, statusStore: statusStore)
+                switch style {
+                case .dots:
+                    XCTAssertEqual(volumeCard.previewScene.footer, .dots(DotsState(count: 4, activeCount: 4,
+                        color: .volumeAlert, strokeScale: settings.ringStrokeStyle.scale)))
+                    XCTAssertEqual(ringCard.previewScene.footer, .dots(DotsState(count: 4, activeCount: 4,
+                        color: .volumeAlert, strokeScale: RingStrokeStyle.bold.scale)))
+                case .arc:
+                    XCTAssertEqual(volumeCard.previewScene.footer, .arc(ArcState(progress: 1,
+                        color: .volumeAlert, strokeScale: settings.ringStrokeStyle.scale)))
+                    XCTAssertEqual(ringCard.previewScene.footer, .arc(ArcState(progress: 1,
+                        color: .volumeAlert, strokeScale: RingStrokeStyle.bold.scale)))
+                }
+            }
+        }
+    }
+
     private func previewBar() -> MenuBarPreviewBar<EmptyView> {
         MenuBarPreviewBar(
             status: IconGuideView.example,

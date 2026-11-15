@@ -1407,6 +1407,8 @@ extension StatusIconRenderer {
             statusPalette.charging
         case .bluetooth:
             bluetoothColor(foreground: foreground)
+        case .volumeAlert:
+            defaultCriticalColor
         }
     }
 

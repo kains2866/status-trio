@@ -108,6 +108,9 @@ struct AudioInputControlsView: View {
                 controls
             }
             deviceList
+            if let applicationAudioMixer {
+                ApplicationAudioMixerInlineSection(controller: applicationAudioMixer, isInput: true)
+            }
 
             if let error = state.errorText {
                 Label(error, systemImage: "exclamationmark.triangle.fill")

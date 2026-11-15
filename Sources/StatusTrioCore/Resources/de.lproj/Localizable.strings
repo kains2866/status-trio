@@ -808,10 +808,19 @@
 "appMixer.permission" = "Aktivieren, um App-Audio anzupassen. Bei der ersten Änderung kann macOS Zugriff auf die Systemaudioaufnahme anfordern.";
 "appMixer.enable" = "App-Mixer aktivieren";
 "appMixer.noInput" = "Keine App verwendet einen Audioeingang.";
-"appMixer.noOutput" = "Keine App spielt Audio ab.";
+"appMixer.noOutput" = "Keine Audio-Apps erkannt.";
 "appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
 "appMixer.mute" = "Stummschalten";
 "appMixer.unmute" = "Stummschaltung aufheben";
 "appMixer.routeUnavailable" = "Dieser Ausgabepfad lässt sich nicht unabhängig regeln.";
 
 "settings.audio.applicationMixer.description" = "App-Panels beim Bewegen über die Lautstärke- oder Mikrofonüberschrift anzeigen. Zurücksetzen lässt die Funktion eingeschaltet.";
+
+"settingsVolumeRedMuted" = "Rote Anzeige bei Stummschaltung";
+"settingsVolumeRedMutedDescription" = "Vier rote Punkte oder einen roten Bogen bei stummem Ausgang anzeigen.";
+"settingsVolumeRedZero" = "Rote Anzeige bei Lautstärke null";
+"settingsVolumeRedZeroDescription" = "Auch bei exakt null Lautstärke ohne Stummschaltung rot anzeigen.";
+"settingsAppMixerPresentation" = "Mixer-Anzeigeort";
+"settingsAppMixerPresentationDescription" = "App-Regler im Seitenpanel oder unter den Geräten anzeigen. Eingebettete Listen scrollen ab 240 Punkten Höhe.";
+"settingsAppMixerSubmenu" = "Seitenpanel";
+"settingsAppMixerInline" = "Im Hauptpanel";

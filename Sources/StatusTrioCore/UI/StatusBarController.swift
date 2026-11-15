@@ -265,9 +265,12 @@ final class StatusBarController: NSObject {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
-        applicationAudioMixerSettingsCancellable = settings.$applicationAudioMixerEnabled
-            .removeDuplicates()
-            .sink { [weak self] enabled in self?.applicationAudioMixer.setEnabled(enabled) }
+        applicationAudioMixerSettingsCancellable = Publishers.CombineLatest(settings.$applicationAudioMixerEnabled, settings.$applicationAudioMixerPresentation)
+            .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
+            .sink { [weak self] enabled, presentation in
+                self?.applicationAudioMixer.presentation = presentation
+                self?.applicationAudioMixer.setEnabled(enabled)
+            }
 
         statusItem.isVisible = isVisible
         configureButton()
