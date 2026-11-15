@@ -9,6 +9,7 @@ import AppKit
 /// cases testable with real AppKit views.
 @MainActor
 enum PanelScrollHitTesting {
+    static let applicationMixerScrollIdentifier = NSUserInterfaceItemIdentifier("StatusTrio.application-mixer-scroll")
     static func pointerIsOverScrollableScrollView(
         at pointInRootView: NSPoint,
         in rootView: NSView
@@ -21,7 +22,7 @@ enum PanelScrollHitTesting {
         var view = rootView.hitTest(hitTestPoint)
         while let currentView = view {
             if let scrollView = currentView as? NSScrollView,
-               scrollView.hasVerticalOverflow {
+               scrollView.hasVerticalOverflow || scrollView.identifier == applicationMixerScrollIdentifier {
                 return true
             }
             view = currentView.superview

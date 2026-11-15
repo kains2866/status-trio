@@ -177,6 +177,9 @@ final class SettingsStore: ObservableObject {
     /// after that, a stored list without `.vpn` means the user switched the row
     /// off, and that choice has to survive every later launch.
     static let vpnPopupSectionIntroducedDefaultsKey = "vpnPopupSectionIntroduced.v1"
+    static let showsRedVolumeWhenMutedDefaultsKey = "showsRedVolumeWhenMuted"
+    static let showsRedVolumeWhenZeroDefaultsKey = "showsRedVolumeWhenZero"
+    static let applicationAudioMixerPresentationDefaultsKey = "applicationAudioMixerPresentation"
     static let applicationAudioMixerEnabledDefaultsKey = "applicationAudioMixerEnabled"
     static let popupScrollAdjustsVolumeDefaultsKey = "popupScrollAdjustsVolume"
     static let defaultPopupScrollAdjustsVolume = true
@@ -1085,6 +1088,16 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    @Published var showsRedVolumeWhenMuted: Bool {
+        didSet { defaults.set(showsRedVolumeWhenMuted, forKey: Self.showsRedVolumeWhenMutedDefaultsKey) }
+    }
+    @Published var showsRedVolumeWhenZero: Bool {
+        didSet { defaults.set(showsRedVolumeWhenZero, forKey: Self.showsRedVolumeWhenZeroDefaultsKey) }
+    }
+    @Published var applicationAudioMixerPresentation: ApplicationAudioMixerPresentation {
+        didSet { defaults.set(applicationAudioMixerPresentation.rawValue, forKey: Self.applicationAudioMixerPresentationDefaultsKey) }
+    }
+
     @Published var applicationAudioMixerEnabled: Bool {
         didSet { defaults.set(applicationAudioMixerEnabled, forKey: Self.applicationAudioMixerEnabledDefaultsKey) }
     }
@@ -1596,7 +1609,9 @@ final class SettingsStore: ObservableObject {
     var volumeIconOptions: VolumeIconOptions {
         VolumeIconOptions(
             displayStyle: volumeDisplayStyle,
-            ringStrokeScale: ringStrokeStyle.scale
+            ringStrokeScale: ringStrokeStyle.scale,
+            showsRedWhenMuted: showsRedVolumeWhenMuted,
+            showsRedWhenZero: showsRedVolumeWhenZero
         )
     }
 
@@ -2055,6 +2070,10 @@ final class SettingsStore: ObservableObject {
             }
             defaults.set(true, forKey: Self.vpnPopupSectionIntroducedDefaultsKey)
         }
+        self.showsRedVolumeWhenMuted = defaults.object(forKey: Self.showsRedVolumeWhenMutedDefaultsKey) as? Bool ?? false
+        self.showsRedVolumeWhenZero = defaults.object(forKey: Self.showsRedVolumeWhenZeroDefaultsKey) as? Bool ?? false
+        self.applicationAudioMixerPresentation = defaults.string(forKey: Self.applicationAudioMixerPresentationDefaultsKey)
+            .flatMap(ApplicationAudioMixerPresentation.init(rawValue:)) ?? .submenu
         self.applicationAudioMixerEnabled = defaults.object(
             forKey: Self.applicationAudioMixerEnabledDefaultsKey
         ) as? Bool ?? false

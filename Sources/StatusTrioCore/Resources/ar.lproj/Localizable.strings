@@ -808,10 +808,19 @@
 "appMixer.permission" = "فعّل ضبط الصوت لكل تطبيق. قد يطلب أول تعديل إذن تسجيل صوت النظام.";
 "appMixer.enable" = "تفعيل مزج التطبيقات";
 "appMixer.noInput" = "لا توجد تطبيقات تستخدم إدخال الصوت.";
-"appMixer.noOutput" = "لا توجد تطبيقات تشغّل الصوت.";
+"appMixer.noOutput" = "لم يتم اكتشاف تطبيقات صوتية.";
 "appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
 "appMixer.mute" = "كتم الصوت";
 "appMixer.unmute" = "إلغاء الكتم";
 "appMixer.routeUnavailable" = "لا يمكن ضبط مسار الإخراج هذا بشكل مستقل.";
 
 "settings.audio.applicationMixer.description" = "عرض لوحات التطبيقات عند تمرير المؤشر فوق عنوان الصوت أو الميكروفون. إعادة الضبط لا توقف الميزة.";
+
+"settingsVolumeRedMuted" = "مؤشر أحمر عند كتم الصوت";
+"settingsVolumeRedMutedDescription" = "إظهار أربع نقاط حمراء أو قوس أحمر عند كتم الإخراج.";
+"settingsVolumeRedZero" = "مؤشر أحمر عند مستوى الصفر";
+"settingsVolumeRedZeroDescription" = "إظهار الأحمر أيضاً عندما يكون الصوت صفراً تماماً دون كتم.";
+"settingsAppMixerPresentation" = "موضع المزج";
+"settingsAppMixerPresentationDescription" = "عرض عناصر التطبيقات بجانب اللوحة أو تحت الأجهزة. تُمرر القائمة المضمنة عندما يتجاوز ارتفاعها 240 نقطة.";
+"settingsAppMixerSubmenu" = "لوحة جانبية";
+"settingsAppMixerInline" = "داخل اللوحة الرئيسية";

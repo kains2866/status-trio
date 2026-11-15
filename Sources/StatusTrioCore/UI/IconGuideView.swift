@@ -803,7 +803,9 @@ struct IconGuideStateCard: View {
         VolumeIconOptions(
             displayStyle: state.volumeDisplayStyleOverride
                 ?? settings.volumeDisplayStyle,
-            ringStrokeScale: settings.ringStrokeStyle.scale
+            ringStrokeScale: settings.ringStrokeStyle.scale,
+            showsRedWhenMuted: settings.volumeIconOptions.showsRedWhenMuted,
+            showsRedWhenZero: settings.volumeIconOptions.showsRedWhenZero
         )
     }
 }

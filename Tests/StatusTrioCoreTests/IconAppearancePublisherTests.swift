@@ -163,6 +163,8 @@ final class IconAppearancePublisherTests: XCTestCase {
     }
 
     private static let iconMutations: [IconMutation] = [
+        IconMutation(name: "showsRedVolumeWhenMuted") { $0.showsRedVolumeWhenMuted = true },
+        IconMutation(name: "showsRedVolumeWhenZero") { $0.showsRedVolumeWhenZero = true },
         IconMutation(name: menuBarOnlyMutationName) { $0.iconSize = 32 },
         IconMutation(name: "showsBatteryPercentage") { $0.showsBatteryPercentage = false },
         IconMutation(name: "showsChargingIndicator") { $0.showsChargingIndicator = false },

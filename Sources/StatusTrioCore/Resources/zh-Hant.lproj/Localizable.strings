@@ -808,10 +808,19 @@
 "appMixer.permission" = "啟用後可個別調整程式音量。首次調整時，系統可能要求音訊錄製權限。";
 "appMixer.enable" = "啟用應用程式混音";
 "appMixer.noInput" = "目前沒有程式使用音訊輸入。";
-"appMixer.noOutput" = "目前沒有程式播放音訊。";
+"appMixer.noOutput" = "目前尚未識別到音訊程式。";
 "appMixer.failed" = "無法調整程式音訊。請重試或重設混音。";
 "appMixer.mute" = "靜音";
 "appMixer.unmute" = "取消靜音";
 "appMixer.routeUnavailable" = "此輸出路徑暫不支援個別調整。";
 
 "settings.audio.applicationMixer.description" = "開啟後，游標停留在音量或麥克風標題區域可開啟程式子面板。重設只恢復各程式音量，不關閉此功能。";
+
+"settingsVolumeRedMuted" = "靜音時底部指示器顯示紅色";
+"settingsVolumeRedMutedDescription" = "輸出靜音時，顯示完整四個紅點或紅色弧條。";
+"settingsVolumeRedZero" = "音量為 0 時底部指示器顯示紅色";
+"settingsVolumeRedZeroDescription" = "未靜音但音量恰為 0 時，也顯示紅色提示。";
+"settingsAppMixerPresentation" = "混音器顯示位置";
+"settingsAppMixerPresentationDescription" = "程式控制可放在側向子面板，或直接顯示在主面板裝置列表下方。內嵌列表高度上限為 240 點，超出可捲動。";
+"settingsAppMixerSubmenu" = "側向子面板";
+"settingsAppMixerInline" = "主面板內顯示";

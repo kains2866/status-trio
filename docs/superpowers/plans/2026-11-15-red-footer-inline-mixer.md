@@ -1,0 +1,8 @@
+# Red volume footer and inline application mixer
+
+User-approved scope: two independent default-off footer red switches (muted; finite exactly-zero not muted); selectable application mixer presentation, submenu default and inline optional, capped scrollable app lists. Do not incorporate upstream update/scroll changes.
+
+1. Add hashable volume options and a dedicated fixed-red icon role; map flags to all four active dots or full footer arc. Preserve unknown scalar and ordinary zero/mute behavior when flags off. Shared Menu Bar/Dock configuration, publisher, caches, icon guide and settings previews receive both flags. Regression tests cover independent triggers, invalid/missing scalar, fixed red despite battery custom color, and parity.
+2. Persist both red flags and mixer presentation (submenu/inline). Add bottom indicator toggles and audio settings placement picker with localized labels. Tests cover defaults, independence, persistence and publisher emissions.
+3. Inline output/input app lists below corresponding device controls, cap each app rows viewport at 240 points; headers remain outside viewport and settings gears stay on right. Inline disables hover branch. Demand uses per-surface tokens so one disappearing list cannot stop the other. Parent close/disable clears demand. App list scrolls never trigger master volume fallback even when short. Focused controller/scroll tests precede full verification.
+4. Review final integrated tree, run one final full local profile and mandated alignment/parity scope. Build via build-worktree.sh, then replace only the owned developer instance when ready. No Release or remote publish requested.

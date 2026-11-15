@@ -10,6 +10,8 @@ public enum VolumeDisplayStyle: String, CaseIterable, Identifiable, Codable, Sen
 public struct VolumeIconOptions: Equatable, Hashable, Sendable {
     public let displayStyle: VolumeDisplayStyle
     public let ringStrokeScale: Double
+    public let showsRedWhenMuted: Bool
+    public let showsRedWhenZero: Bool
 
     /// Kept in step with the stroke-style default so tuning the enum cannot
     /// silently desynchronise `.standard`, the previews, and the icon guide.
@@ -31,9 +33,13 @@ public struct VolumeIconOptions: Equatable, Hashable, Sendable {
 
     public init(
         displayStyle: VolumeDisplayStyle = .dots,
-        ringStrokeScale: Double = defaultRingStrokeScale
+        ringStrokeScale: Double = defaultRingStrokeScale,
+        showsRedWhenMuted: Bool = false,
+        showsRedWhenZero: Bool = false
     ) {
         self.displayStyle = displayStyle
         self.ringStrokeScale = ringStrokeScale.isFinite ? min(2.5, max(0.5, ringStrokeScale)) : Self.defaultRingStrokeScale
+        self.showsRedWhenMuted = showsRedWhenMuted
+        self.showsRedWhenZero = showsRedWhenZero
     }
 }

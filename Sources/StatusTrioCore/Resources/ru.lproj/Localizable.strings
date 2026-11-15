@@ -808,10 +808,19 @@
 "appMixer.permission" = "Включите регулировку по приложениям. При первом изменении может потребоваться разрешение на запись системного звука.";
 "appMixer.enable" = "Включить микшер";
 "appMixer.noInput" = "Нет приложений, использующих аудиовход.";
-"appMixer.noOutput" = "Нет приложений, воспроизводящих звук.";
+"appMixer.noOutput" = "Аудиоприложения не обнаружены.";
 "appMixer.failed" = "Could not adjust application audio. Try again or reset the mixer.";
 "appMixer.mute" = "Выключить звук";
 "appMixer.unmute" = "Включить звук";
 "appMixer.routeUnavailable" = "Этот выход нельзя регулировать отдельно.";
 
 "settings.audio.applicationMixer.description" = "Показывать панели приложений при наведении на заголовок громкости или микрофона. Сброс не отключает функцию.";
+
+"settingsVolumeRedMuted" = "Красный индикатор при отключённом звуке";
+"settingsVolumeRedMutedDescription" = "Показывать четыре красные точки или красную дугу при отключённом звуке выхода.";
+"settingsVolumeRedZero" = "Красный индикатор при нулевой громкости";
+"settingsVolumeRedZeroDescription" = "Также показывать красный при точно нулевой громкости без отключения звука.";
+"settingsAppMixerPresentation" = "Расположение микшера";
+"settingsAppMixerPresentationDescription" = "Показывать регуляторы сбоку или под устройствами. Встроенный список прокручивается при высоте более 240 пунктов.";
+"settingsAppMixerSubmenu" = "Боковая панель";
+"settingsAppMixerInline" = "В основной панели";

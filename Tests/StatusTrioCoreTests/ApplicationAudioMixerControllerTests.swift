@@ -4,6 +4,36 @@ import XCTest
 
 @MainActor
 final class ApplicationAudioMixerControllerTests: XCTestCase {
+    func testIndependentInlineSurfacesKeepDiscoveryUntilBothDisappear() {
+        let discovery = MixerDiscoveryFake()
+        let controller = makeController(discovery, MixerSessionFake())
+        let output = UUID(), input = UUID()
+        controller.enable()
+        controller.setSurfaceVisible(true, id: output)
+        controller.setSurfaceVisible(true, id: input)
+        XCTAssertTrue(discovery.isRunning)
+        controller.setSurfaceVisible(false, id: output)
+        XCTAssertTrue(discovery.isRunning)
+        controller.setSurfaceVisible(false, id: input)
+        XCTAssertFalse(discovery.isRunning)
+    }
+
+    func testParentCloseClearsAllInlineDemandAndDisableRejectsLateAppear() {
+        let discovery = MixerDiscoveryFake()
+        let controller = makeController(discovery, MixerSessionFake())
+        let output = UUID(), input = UUID()
+        controller.enable()
+        controller.setSurfaceVisible(true, id: output)
+        controller.setSurfaceVisible(true, id: input)
+        controller.setPanelVisible(false)
+        XCTAssertFalse(discovery.isRunning)
+        controller.setEnabled(false)
+        controller.setSurfaceVisible(true, id: output)
+        XCTAssertFalse(discovery.isRunning)
+        controller.enable()
+        XCTAssertFalse(discovery.isRunning)
+    }
+
     func testDisablingFeatureRestoresUnityAndStopsDiscovery() {
         let discovery = MixerDiscoveryFake()
         let session = MixerSessionFake()
@@ -169,7 +199,7 @@ final class ApplicationAudioMixerControllerTests: XCTestCase {
         let controller = makeController(discovery, session)
         controller.enable()
         controller.setPanelVisible(true)
-        discovery.send([process(8, input: true, output: false), process(3), process(1)])
+        discovery.send([process(8, uid: nil, input: true, output: false), process(3), process(1)])
         XCTAssertEqual(controller.rows.count, 2)
         let output = controller.rows.first { !$0.isInput }!
         let input = controller.rows.first { $0.isInput }!
@@ -256,7 +286,7 @@ final class ApplicationAudioMixerControllerTests: XCTestCase {
         controller.setGain(0.25, for: controller.rows[0].id)
         controller.setPanelVisible(false)
         discovery.send([process(1, output: false)])
-        XCTAssertTrue(controller.rows.isEmpty)
+        XCTAssertEqual(controller.rows.first?.gain, 0.25)
         XCTAssertEqual(session.stopCount, 1)
         XCTAssertTrue(discovery.isRunning)
         discovery.send([process(1)])
@@ -366,7 +396,7 @@ final class ApplicationAudioMixerControllerTests: XCTestCase {
         controller.setGain(0.25, for: controller.rows[0].id)
         controller.setPanelVisible(false)
         discovery.send([])
-        XCTAssertTrue(controller.rows.isEmpty)
+        XCTAssertEqual(controller.rows.first?.gain, 0.25)
         XCTAssertEqual(session.stopCount, 1)
         XCTAssertTrue(discovery.isRunning)
         discovery.send([process(2, pid: 20)])
@@ -377,6 +407,177 @@ final class ApplicationAudioMixerControllerTests: XCTestCase {
         discovery.send([])
         XCTAssertFalse(discovery.isRunning)
         XCTAssertEqual(session.stopCount, 2)
+        controller.stop()
+    }
+
+    func testIdleOutputWithRouteEvidenceCanSaveGainAndMuteWithoutStartingCapture() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        let controller = makeController(discovery, session)
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1, output: false)])
+        XCTAssertEqual(controller.rows.count, 1)
+        guard let row = controller.rows.first else { return }
+        XCTAssertTrue(row.canAdjust)
+        XCTAssertFalse(row.isPlaying)
+        XCTAssertTrue(row.processIDs.isEmpty)
+        controller.setGain(0.35, for: row.id)
+        controller.toggleMute(for: row.id)
+        discovery.send([process(1, output: false)])
+        XCTAssertEqual(controller.rows.first?.gain, 0.35)
+        XCTAssertEqual(controller.rows.first?.isMuted, true)
+        XCTAssertEqual(controller.rows.first?.isPlaying, false)
+        XCTAssertTrue(session.starts.isEmpty)
+        discovery.send([process(2)])
+        XCTAssertEqual(session.starts.last?.processIDs, [2])
+        XCTAssertEqual(session.starts.last?.gain, 0)
+        XCTAssertEqual(controller.rows.first?.isPlaying, true)
+        controller.stop()
+    }
+
+    func testUnadjustedOutputRemainsAdjustableAfterHALDisappearsWhileOwnerLives() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        var alive = true
+        let controller = ApplicationAudioMixerController(
+            discovery: discovery, isSupported: true,
+            resolveIdentity: { _ in
+                ApplicationAudioAppIdentity(name: "Browser", bundleID: "browser", appURL: URL(fileURLWithPath: "/Applications/Browser.app"), instanceID: "10:launch")
+            }, isOwnerAlive: { $0 == "10:launch" && alive }, makeSession: { session }
+        )
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1)])
+        let id = controller.rows[0].id
+        discovery.send([])
+        XCTAssertEqual(controller.rows.first?.isPlaying, false)
+        XCTAssertEqual(controller.rows.first?.processIDs, [])
+        XCTAssertEqual(controller.rows.count, 1)
+        XCTAssertEqual(controller.rows.first?.gain, 1)
+        controller.setGain(0.4, for: id)
+        XCTAssertEqual(controller.rows.first?.gain, 0.4)
+        XCTAssertTrue(session.starts.isEmpty)
+        controller.reset()
+        XCTAssertEqual(controller.rows.first?.gain, 1)
+        XCTAssertEqual(controller.rows.first?.canAdjust, true)
+        alive = false
+        discovery.send([])
+        XCTAssertTrue(controller.rows.isEmpty)
+        controller.stop()
+    }
+
+    func testMissingPausedRoutePreservesSavedRouteButResumedRouteChangeResetsGain() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        let controller = makeController(discovery, session)
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1)])
+        let id = controller.rows[0].id
+        controller.setGain(0.25, for: id)
+        discovery.send([process(1, uid: nil, output: false)])
+        XCTAssertEqual(controller.rows.first?.gain, 0.25)
+        XCTAssertEqual(controller.rows.first?.outputDeviceUID, "speaker")
+        controller.setGain(0.5, for: id)
+        XCTAssertEqual(session.starts.count, 1)
+        discovery.send([process(2)])
+        XCTAssertEqual(session.starts.last?.processIDs, [2])
+        XCTAssertEqual(session.starts.last?.gain, 0.5)
+        discovery.send([process(2, output: false)])
+        discovery.send([process(3, uid: "headphones")])
+        XCTAssertEqual(controller.rows.first?.gain, 1)
+        XCTAssertEqual(session.starts.count, 2)
+        controller.stop()
+    }
+
+    func testIdleClientsWithoutOutputEvidenceNeverBecomeOutputRows() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        let controller = makeController(discovery, session)
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1, input: true, output: false), process(2, uid: nil, output: false)])
+        XCTAssertEqual(controller.rows.count, 1)
+        XCTAssertEqual(controller.rows.first?.isInput, true)
+        XCTAssertTrue(session.starts.isEmpty)
+        controller.stop()
+    }
+
+    func testFailureResumingSavedPausedGainDoesNotRetryOnEveryDiscoveryEvent() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        let controller = makeController(discovery, session)
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1, output: false)])
+        guard let row = controller.rows.first else { XCTFail("Missing paused output"); return }
+        controller.setGain(0.3, for: row.id)
+        session.shouldFail = true
+        discovery.send([process(2)])
+        discovery.send([process(2)])
+        discovery.send([process(2)])
+        XCTAssertEqual(session.starts.count, 1)
+        XCTAssertEqual(controller.rows.first?.gain, 1)
+        XCTAssertNotNil(controller.errorMessage)
+        controller.stop()
+    }
+
+    func testDisableClearsOutputHistoryAndStaleSnapshotsBeforeReenabling() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        let controller = makeController(discovery, session)
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1)])
+        controller.setEnabled(false)
+        controller.enable()
+        XCTAssertTrue(controller.rows.isEmpty)
+        controller.setPanelVisible(true)
+        discovery.send([process(2, uid: nil, output: false)])
+        XCTAssertTrue(controller.rows.isEmpty)
+        XCTAssertTrue(session.starts.isEmpty)
+        controller.stop()
+    }
+
+    func testReusedOwnerCannotInheritCachedPausedOutputEvidenceOrGain() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        var launch = "first"
+        let controller = ApplicationAudioMixerController(
+            discovery: discovery, isSupported: true,
+            resolveIdentity: { pid in
+                ApplicationAudioAppIdentity(name: "Browser", bundleID: "browser", appURL: URL(fileURLWithPath: "/Applications/Browser.app"), instanceID: "\(pid):\(launch)")
+            }, makeSession: { session }
+        )
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1)])
+        controller.setGain(0.25, for: controller.rows[0].id)
+        launch = "second"
+        discovery.send([process(1, uid: nil, output: false)])
+        XCTAssertTrue(controller.rows.isEmpty)
+        XCTAssertEqual(session.stopCount, 1)
+        discovery.send([process(1, output: false)])
+        XCTAssertEqual(controller.rows.first?.gain, 1)
+        XCTAssertEqual(controller.rows.first?.isPlaying, false)
+        XCTAssertEqual(session.starts.count, 1)
+        controller.stop()
+    }
+
+    func testObservedRouteFormatChangeWhilePausedResetsSavedTargetWithoutCapture() {
+        let discovery = MixerDiscoveryFake()
+        let session = MixerSessionFake()
+        let controller = makeController(discovery, session)
+        controller.enable()
+        controller.setPanelVisible(true)
+        discovery.send([process(1, output: false)])
+        guard let row = controller.rows.first else { XCTFail("Missing paused output"); return }
+        controller.setGain(0.25, for: row.id)
+        discovery.send([ApplicationAudioProcessSnapshot(objectID: 1, pid: 10, bundleID: "browser", isRunningInput: false, isRunningOutput: false, inputDevices: [], outputDevices: [.init(id: 100, uid: "speaker", name: "Speaker", routeFingerprint: "96000:stereo")], outputRouteIsComplete: true)])
+        XCTAssertEqual(controller.rows.first?.gain, 1)
+        XCTAssertEqual(controller.rows.first?.isPlaying, false)
+        XCTAssertTrue(session.starts.isEmpty)
         controller.stop()
     }
 

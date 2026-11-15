@@ -7,4 +7,6 @@ enum IconColorRole: Equatable, Hashable, Sendable {
     case highPower
     case powered
     case bluetooth
+    /// Volume alerts stay red independently of the battery's custom palette.
+    case volumeAlert
 }

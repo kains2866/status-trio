@@ -24,14 +24,16 @@ extension SettingsStore {
             batteryInputsPublisher,
             connectionOptionsPublisher,
             bluetoothOptionsPublisher,
-            $volumeDisplayStyle
+            Publishers.CombineLatest3($volumeDisplayStyle, $showsRedVolumeWhenMuted, $showsRedVolumeWhenZero)
         )
         .combineLatest($iconSize) { groups, iconSize in
             IconAppearanceGroups(
                 battery: groups.0,
                 connection: groups.1,
                 bluetooth: groups.2,
-                volumeDisplayStyle: groups.3,
+                volumeDisplayStyle: groups.3.0,
+                showsRedWhenMuted: groups.3.1,
+                showsRedWhenZero: groups.3.2,
                 iconSize: iconSize
             )
         }
@@ -177,6 +179,8 @@ private struct IconAppearanceGroups {
     var connection: ConnectionIconOptions
     var bluetooth: BluetoothAudioIconOptions
     var volumeDisplayStyle: VolumeDisplayStyle
+    var showsRedWhenMuted: Bool
+    var showsRedWhenZero: Bool
     var iconSize: Double
 
     func appearance(ringStrokeScale: Double, centerScale: Double) -> StatusIconAppearance {
@@ -201,7 +205,9 @@ private struct IconAppearanceGroups {
             connectionOptions: scaledConnection,
             volumeOptions: VolumeIconOptions(
                 displayStyle: volumeDisplayStyle,
-                ringStrokeScale: ringStrokeScale
+                ringStrokeScale: ringStrokeScale,
+                showsRedWhenMuted: showsRedWhenMuted,
+                showsRedWhenZero: showsRedWhenZero
             ),
             bluetoothAudioOptions: scaledBluetooth
         )
