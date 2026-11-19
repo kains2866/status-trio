@@ -15,6 +15,43 @@ final class StatusBarMemoryPressureTests: VisibleUITestCase {
         XCTAssertFalse(harness.didActivateApplication)
     }
 
+    /// Issue #6: while the app is regular, the status-item press must be left to
+    /// the item's own mouse-up toggle. The controller's predicate is simulated
+    /// here because a real press cannot be synthesized in this suite.
+    ///
+    /// `VisibleUITestCase`: skipped by default; needs an authorized visible
+    /// session because the panel must be ordered in for its observers.
+    func testFocusLossDefersWhileTheStatusItemIsPressed() async throws {
+        let harness = try StatusBarPressureHarness()
+        defer { harness.cleanUp() }
+        harness.controller.togglePopover()
+        let panel = harness.controller.popoverForTesting
+        XCTAssertTrue(panel.isShown)
+
+        panel.shouldDeferDismissalOnFocusLoss = { true }
+        NotificationCenter.default.post(
+            name: NSApplication.didResignActiveNotification,
+            object: NSApplication.shared
+        )
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertTrue(
+            panel.isShown,
+            "a press on the status item must defer the focus-loss close"
+        )
+
+        panel.shouldDeferDismissalOnFocusLoss = { false }
+        let closed = expectation(
+            forNotification: AnchoredStatusPanel.didCloseNotification,
+            object: panel
+        )
+        NotificationCenter.default.post(
+            name: NSApplication.didResignActiveNotification,
+            object: NSApplication.shared
+        )
+        await fulfillment(of: [closed], timeout: 1)
+        XCTAssertFalse(panel.isShown)
+    }
+
     func testWorkspaceAppSwitchClosesMenuBarPanel() async throws {
         let harness = try StatusBarPressureHarness()
         defer { harness.cleanUp() }

@@ -77,3 +77,76 @@ confirmed repeated open/close/reopen, Settings-open behavior, Cmd-Tab, Escape,
 and outside clicks. CUA could inspect windows but could not click the status item.
 Full local verification is recorded in the PR; macOS 13 runtime is NOT RUN.
 Shortcut activation is unchanged; shortcut-open → status-click is unvalidated.
+
+
+## Follow-up 2: edge pixels and regular-mode focus loss (fork issue #6)
+
+Related fork tracking: [#6](https://github.com/kains2866/status-trio/issues/6).
+The three upstream follow-ups (`c5474fb9`, `07b2882a`, `79b479b2`) were not in
+this fork's `main`, so v1.9.4 / v1.9.7 still showed the original behaviour.
+
+### Root cause
+
+- `NSRect.contains(_:)` is half-open: `maxX` / `maxY` are outside. The
+  status-item hit test in `PopoverDismissalPolicy.shouldDismiss` used it, so a
+  click on the item's topmost or rightmost pixel was an "outside click" —
+  mouse-down closed the panel and mouse-up reopened it (the "it refreshed
+  instead of closing" report).
+- In regular mode (Settings open, or the Dock icon shown), the status-item click
+  also makes the app resign active. `AnchoredStatusPanel`'s `didResignActive`
+  and `NSWorkspace.didActivateApplication` observers closed the panel on
+  mouse-down for the same close/reopen result.
+- No coordinate-free fallback existed for menu-bar geometry that the hit test
+  misjudges (multi-display, notch, a different macOS build).
+
+### Fix
+
+- `PopoverDismissalPolicy.containsInclusive(_:_:)` compares all four edges
+  inclusively. `shouldDismiss` and the new `shouldDismissOnFocusLoss` use it;
+  one pixel outside an edge still dismisses.
+- `PopoverReopenSuppression` records the mouse-down timestamp of the press that
+  closed the panel. The following status-item mouse-up toggle is ignored only
+  when it belongs to that same press (20 ms tolerance, matching
+  `DockClickReopenGuard`). A new click immediately after an outside dismissal
+  still opens. This is coordinate-free.
+- `AnchoredStatusPanel.shouldDeferDismissalOnFocusLoss` lets the controller keep
+  a status-item press alive; genuine focus loss without a pressed button still
+  dismisses (#183 behaviour preserved). The app-window focus guard (#267) uses
+  the same deferral.
+- `AnchoredStatusPanel.containsScreenPoint` uses the inclusive test, so a click
+  on the panel's own outer edge is not an outside click.
+- `revealAfterSettling` re-asserts `orderFrontRegardless` so a window brought
+  forward during the settling turn cannot end up above the first-level panel.
+
+### Verification
+
+- `PopoverLifecycleTests`: 4 edge/corner points inside, 1 px outside each edge,
+  the half-open `NSRect.contains` contract, focus-loss deferral, the full
+  same-press close-without-reopen gesture, and suppression window/reset cases.
+  **PASS**.
+- `CascadingSubmenuEdgeHitTests` asserts the window-level edge hit for an
+authorized visible/isolated session. It is a `VisibleUITestCase` (skipped by
+default): creating an extra panel in the shared XCTest process perturbs the
+pre-existing symbol-raster fingerprint test when both run in the same full
+suite. The pure `PopoverDismissalPolicyEdgeTests` covers the inclusive
+semantics in the normal suite.
+- `StatusPanelContentTests.testPanelCanBecomeKeyWithoutBecomingMain` pins the
+  default `level == .statusBar` and `isFloatingPanel`. It does not exercise the
+  background-testing `.normal` switch/restore, which is covered by that route's
+  own policy.
+- `bash scripts/verify-local.sh quick 'Popover'`: **PASS**.
+- `bash scripts/verify-local.sh full` on the first branch commit `f8952900`:
+  **PASS** — 2858 XCTest (88 skipped) and 1001 Swift Testing, Release build and
+  native contracts. That commit contains the same menu-bar fix; the later
+  amendment only changes the suppression to press identity and adds tests/docs.
+- Moving the window-level edge assertion to the visible boundary avoids the
+  interaction with the **known pre-existing**
+  `ChargingEffectRenderingTests.nilPhaseKeepsThePreEffectStaticPixelFingerprint`
+  failure (`db42f0d...`, see `docs/application-audio-mixer.zh-Hans.md`). The
+  fingerprint test itself was not relaxed or skipped.
+- Real pointer clicks on each icon edge and in regular mode: **NOT RUN** — no
+  permitted Computer Use provider for a status-item click in this session. It
+  still needs an authorized foreground/manual pass. The focus-loss wiring has a
+  `VisibleUITestCase` ready for that authorized run; the reveal re-order has no
+  automated test.
+- macOS 13 runtime: **NOT RUN**.

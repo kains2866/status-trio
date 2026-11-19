@@ -101,6 +101,8 @@ final class StatusPanelContentTests: XCTestCase {
 
         XCTAssertTrue(panel.canBecomeKey)
         XCTAssertFalse(panel.canBecomeMain)
+        XCTAssertEqual(panel.level, .statusBar, "the first-level panel must stay above normal windows")
+        XCTAssertTrue(panel.isFloatingPanel)
         XCTAssertEqual(panel.collectionBehavior.contains(.fullScreenAuxiliary), true)
         XCTAssertEqual(panel.collectionBehavior.contains(.canJoinAllSpaces), true)
     }

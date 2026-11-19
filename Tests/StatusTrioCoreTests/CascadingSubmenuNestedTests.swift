@@ -163,3 +163,37 @@ final class CascadingSubmenuNestedTests: XCTestCase {
         [view] + view.subviews.flatMap { allViews(in: $0) }
     }
 }
+
+/// Issue #6: the right and top window edges belong to the panel. A click on the
+/// outermost pixel must not be treated as an outside click and dismiss it while
+/// the user is interacting with an edge control.
+///
+/// `VisibleUITestCase`: skipped by default. Creating this extra status panel in
+/// the shared XCTest process perturbs the pre-existing symbol-raster fingerprint
+/// test when it runs in the same full suite, so the window-level assertion only
+/// runs in an authorized visible/isolated session.
+@MainActor
+final class CascadingSubmenuEdgeHitTests: VisibleUITestCase {
+    private final class VisibleFrameWindow: NSWindow {
+        override var isVisible: Bool { true }
+    }
+
+    func testPanelEdgesBelongToTheDismissalHitArea() {
+        let root = AnchoredStatusPanel()
+        let child = VisibleFrameWindow(contentRect: NSRect(x: 50, y: 70, width: 100, height: 80),
+                                       styleMask: .borderless, backing: .buffered, defer: false)
+        child.isReleasedWhenClosed = false
+        root.addChildWindow(child, ordered: .above)
+        defer { root.removeChildWindow(child) }
+
+        let frame = child.frame
+        XCTAssertTrue(root.containsScreenPoint(NSPoint(x: frame.maxX, y: frame.midY)),
+                      "the right edge is inside the panel")
+        XCTAssertTrue(root.containsScreenPoint(NSPoint(x: frame.midX, y: frame.maxY)),
+                      "the top edge is inside the panel")
+        XCTAssertTrue(root.containsScreenPoint(NSPoint(x: frame.maxX, y: frame.maxY)),
+                      "the top-right corner is inside the panel")
+        XCTAssertFalse(root.containsScreenPoint(NSPoint(x: frame.maxX + 1, y: frame.midY)))
+        XCTAssertFalse(root.containsScreenPoint(NSPoint(x: frame.midX, y: frame.maxY + 1)))
+    }
+}

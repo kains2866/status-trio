@@ -158,6 +158,7 @@ final class StatusBarController: NSObject {
         lockout: StatusBarController.popoverToggleLockoutInterval
     )
     private var dockClickReopenGuard = DockClickReopenGuard()
+    private var reopenSuppression = PopoverReopenSuppression()
     private var popoverContentReleaseTask: Task<Void, Never>?
     private var popoverContentGeneration: UInt64 = 0
     private var isPopoverClosing = false
@@ -498,6 +499,21 @@ final class StatusBarController: NSObject {
         popover.onClose = { [weak self] in
             self?.handlePanelDidClose()
         }
+        // Issue #224 follow-up: while the app is active (regular mode), the
+        // panel's focus-loss observers would close it on the status-item
+        // mouse-down and the item's mouse-up toggle would reopen it. Defer that
+        // close when the pointer is pressing the item so the toggle owns the
+        // click; a genuine focus loss (no button pressed) still dismisses.
+        popover.shouldDeferDismissalOnFocusLoss = { [weak self] in
+            guard let self else { return false }
+            let policy = PopoverDismissalPolicy(
+                statusItemFrame: self.statusItemButtonScreenFrame()
+            )
+            return !policy.shouldDismissOnFocusLoss(
+                at: NSEvent.mouseLocation,
+                isMouseButtonDown: NSEvent.pressedMouseButtons != 0
+            )
+        }
     }
 
     private func installPopoverContentIfNeeded() {
@@ -538,6 +554,17 @@ final class StatusBarController: NSObject {
     }
 
     func togglePopover() {
+        // Issue #224 follow-up 2: if this same click's mouse-down already closed
+        // the panel (the outside-click monitor, or a focus-loss close while the
+        // button was held), the click intended to close — never reopen on the
+        // following mouse-up. Match the press itself, not a time window, so a
+        // new click immediately after an outside dismissal still opens.
+        if !popover.isShown,
+           reopenSuppression.shouldSuppressReopen(
+               mouseDownAt: Self.lastLeftMouseDownTime()
+           ) {
+            return
+        }
         guard popoverToggleGate.shouldAccept(at: Date()) else { return }
         guard let button = statusItem.button else { return }
         if popover.isShown {
@@ -575,7 +602,12 @@ final class StatusBarController: NSObject {
         if !popover.isShown, dockClickReopenGuard.hasPendingClose {
             let samePress = dockClickReopenGuard.consumeIfSamePress(mouseDownAt: Self.lastLeftMouseDownTime())
             popoverToggleGate = PopoverToggleGate(lockout: Self.popoverToggleLockoutInterval)
-            if samePress { return }
+            if samePress {
+                // The Dock press already dismissed the panel; it must not leave
+                // a record that affects the next status-item click.
+                reopenSuppression.reset()
+                return
+            }
         }
         guard popoverToggleGate.shouldAccept(at: Date()) else { return }
         if popover.isShown {
@@ -694,6 +726,8 @@ final class StatusBarController: NSObject {
         dockInset: NSEdgeInsets = DockReveal.noInset
     ) {
         dockClickReopenGuard.reset()
+        // A fresh presentation is not the tail of a mouse-down dismissal.
+        reopenSuppression.reset()
         cancelPopoverContentRelease()
         store.setPopoverVisible(true)
         // A retained route is lightweight. Re-enter its detail source before
@@ -857,6 +891,11 @@ final class StatusBarController: NSObject {
             hasParent: candidateWindow.parent != nil
         )
         guard policy.shouldDismiss(for: candidate) else { return }
+        // In regular mode a status-item click can activate the app and key the
+        // Settings window while the user is still pressing the item. Leave that
+        // press to the item's own mouse-up toggle instead of closing now and
+        // reopening on mouse-up (issue #224 follow-up).
+        if popover.shouldDeferDismissalOnFocusLoss?() == true { return }
         popover.performClose(nil)
     }
 
@@ -1019,6 +1058,11 @@ final class StatusBarController: NSObject {
                 guard policy.shouldDismiss(at: clickLocation),
                       !self.popover.containsScreenPoint(clickLocation) else { return }
                 self.dockClickReopenGuard.recordClose(mouseDownAt: mouseDownAt)
+                // Even when the geometry check cannot recognise the item (some
+                // multi-display / OS setups), remember the press that closed the
+                // panel so the same click's mouse-up will not reopen it (issue
+                // #224 follow-up 2).
+                self.reopenSuppression.recordClose(mouseDownAt: mouseDownAt)
                 self.popover.performClose(nil)
             }
         }
@@ -1224,8 +1268,14 @@ final class StatusBarController: NSObject {
 
     private func handlePanelDidClose() {
         applicationAudioMixer.setPanelVisible(false)
+        // A close while the left button is held is a mouse-down dismissal (the
+        // outside-click monitor or a focus-loss close during the press). The
+        // same click's mouse-up must not reopen the panel (issue #224 follow-up
+        // 2). The item's own toggle closes on mouse-up, so it is not recorded.
         if NSEvent.pressedMouseButtons & 1 != 0 {
-            dockClickReopenGuard.recordClose(mouseDownAt: Self.lastLeftMouseDownTime())
+            let mouseDownAt = Self.lastLeftMouseDownTime()
+            dockClickReopenGuard.recordClose(mouseDownAt: mouseDownAt)
+            reopenSuppression.recordClose(mouseDownAt: mouseDownAt)
         }
         let popoverWindow = popover.contentViewController?.view.window
         dockActivationLogger.notice(
