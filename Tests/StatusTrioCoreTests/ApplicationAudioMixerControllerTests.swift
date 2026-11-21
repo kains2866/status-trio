@@ -1,9 +1,38 @@
 import CoreAudio
+import SwiftUI
 import XCTest
 @testable import StatusTrioCore
 
 @MainActor
 final class ApplicationAudioMixerControllerTests: XCTestCase {
+    func testMicrophoneDeviceNameDoesNotAddASecondLine() throws {
+        let discovery = MixerDiscoveryFake()
+        let controller = makeController(discovery, MixerSessionFake())
+        let localization = Localization()
+        controller.enable()
+        controller.setPanelVisible(true)
+        defer { controller.stop() }
+
+        func renderHeight(inputDevices: [ApplicationAudioDeviceSnapshot]) throws -> CGFloat {
+            discovery.send([ApplicationAudioProcessSnapshot(
+                objectID: 1, pid: 10, bundleID: "browser", isRunningInput: true, isRunningOutput: false,
+                inputDevices: inputDevices, outputDevices: [], outputRouteIsComplete: false
+            )])
+            XCTAssertEqual(controller.rows.count, 1)
+            XCTAssertEqual(controller.rows.first?.outputDeviceName, inputDevices.first?.name)
+            let renderer = ImageRenderer(content: ApplicationAudioMixerView(controller: controller, isInput: true)
+                .environmentObject(localization)
+                .frame(width: 300))
+            return try XCTUnwrap(renderer.nsImage).size.height
+        }
+
+        let unnamedHeight = try renderHeight(inputDevices: [])
+        let namedHeight = try renderHeight(inputDevices: [
+            .init(id: 90, uid: "mic", name: "MacBook Pro Microphone"),
+        ])
+        XCTAssertEqual(namedHeight, unnamedHeight)
+    }
+
     func testIndependentInlineSurfacesKeepDiscoveryUntilBothDisappear() {
         let discovery = MixerDiscoveryFake()
         let controller = makeController(discovery, MixerSessionFake())

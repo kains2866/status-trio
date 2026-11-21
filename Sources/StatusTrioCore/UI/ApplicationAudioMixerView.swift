@@ -88,9 +88,6 @@ struct ApplicationAudioMixerView: View {
             if !controller.isSupported {
                 message(.appMixerUnsupported)
             } else {
-                if isInput && !rows.isEmpty {
-                    message(.appMixerInputReadOnly)
-                }
                 if rows.isEmpty {
                     message(isInput ? .appMixerNoInput : .appMixerNoOutput)
                 }
@@ -142,8 +139,16 @@ private struct ApplicationAudioMixerRowView: View {
                     .frame(width: DeviceNameHoverMetrics.textWidth, alignment: .leading)
                     .padding(.leading, DeviceNameHoverMetrics.inset)
                 if row.isInput {
-                    Image(systemName: "mic.fill").foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
+                    if let deviceName = row.outputDeviceName {
+                        Text(deviceName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
                 } else {
                     Button { controller.toggleMute(for: row.id) } label: {
                         Image(systemName: row.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
@@ -171,7 +176,7 @@ private struct ApplicationAudioMixerRowView: View {
             }
             .padding(.vertical, 3)
             .deviceNameHoverReveal(row.name, leadingInset: 32, trailingInset: 0)
-            if let deviceName = row.outputDeviceName, row.isInput || !row.canAdjust {
+            if let deviceName = row.outputDeviceName, !row.isInput && !row.canAdjust {
                 Text(deviceName).font(.caption2).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.middle).padding(.leading, 40)
             }
