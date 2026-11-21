@@ -302,7 +302,7 @@ final class StatusPanelViewModel: ObservableObject {
                         showsPowerInfoBar: self.settings.showsBatteryPowerInfoBar,
                         powerInfoBarIsLoading: !self.store.powerSampling.hasCompletedFirstRead,
                         localization: self.localization,
-                        chargeToFullNow: self.summaryChargeToFullNowPresentation
+                        chargeToFullNow: self.batterySubtitleChargeAction(for: self.store.popupSnapshot.battery)
                     )
                     if self.battery != next { self.battery = next }
                 }
@@ -793,17 +793,22 @@ final class StatusPanelViewModel: ObservableObject {
     /// subtitle reflects the click before the system's charging flag catches up.
     private func refreshBatterySummary() {
         guard isVisible(.battery) else { return }
+        let status = store.popupSnapshot.battery
         let next = PanelPresentationMapper.battery(
-            store.popupSnapshot.battery,
+            status,
             powerSample: store.powerSampling.systemPower,
             inputPower: store.powerSampling.inputPower,
             batteryPower: store.powerSampling.batteryPower,
             showsPowerInfoBar: settings.showsBatteryPowerInfoBar,
             powerInfoBarIsLoading: !store.powerSampling.hasCompletedFirstRead,
             localization: localization,
-            chargeToFullNow: summaryChargeToFullNowPresentation
+            chargeToFullNow: batterySubtitleChargeAction(for: status)
         )
         if battery != next { battery = next }
+    }
+
+    private func batterySubtitleChargeAction(for status: BatteryStatus) -> ChargeToFullNowPresentation {
+        status.isCharging ? chargeToFullNowPresentation : summaryChargeToFullNowPresentation
     }
 
     private func updateChargeToFullNowDemand(
@@ -1009,7 +1014,7 @@ final class StatusPanelViewModel: ObservableObject {
                 batteryPower: store.powerSampling.batteryPower,
                 showsPowerInfoBar: settings.showsBatteryPowerInfoBar,
                 localization: localization,
-                chargeToFullNow: summaryChargeToFullNowPresentation
+                chargeToFullNow: batterySubtitleChargeAction(for: snapshot.battery)
             )
             if battery != batteryState { battery = batteryState }
         }

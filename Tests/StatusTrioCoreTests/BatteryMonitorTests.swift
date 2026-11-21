@@ -93,6 +93,34 @@ final class BatteryMonitorTests: XCTestCase {
         monitor.stop()
     }
 
+    func testChargingUpdatesReuseTheReadOnlySystemChargeLimit() async {
+        let reader = FakeBatteryReader(result: BatteryReading(
+            currentCapacity: 60, maxCapacity: 100, isCharging: true,
+            timeToFullChargeMinutes: 120, isConnectedToPower: true, isPresent: true
+        ))
+        var limitReads = 0
+        let monitor = BatteryMonitor(reader: reader, lowPowerModeProvider: { false }, chargeLimitProvider: {
+            limitReads += 1
+            return 80
+        })
+        defer { monitor.stop() }
+        var iterator = monitor.updates.makeAsyncIterator()
+
+        monitor.refresh()
+        let first = await iterator.next()
+        monitor.refresh()
+        let second = await iterator.next()
+        reader.result?.isCharging = false
+        monitor.refresh()
+        let notCharging = await iterator.next()
+
+        XCTAssertEqual(first?.timeToFullChargeMinutes, 120)
+        XCTAssertEqual(first?.chargeLimitPercent, 80)
+        XCTAssertEqual(second?.chargeLimitPercent, 80)
+        XCTAssertNil(notCharging?.chargeLimitPercent)
+        XCTAssertEqual(limitReads, 1)
+    }
+
     func testParserRejectsInvalidInternalBatteryDescription() {
         let description: [String: Any] = [
             kIOPSTypeKey: kIOPSInternalBatteryType,

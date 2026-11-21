@@ -102,6 +102,8 @@ final class BatteryMonitor: BatteryMonitoring {
     private let reader: any BatteryReadingProviding
     private let lowPowerModeProvider: () -> Bool
     private let iopsRunLoopSourceFactory: IOPSRunLoopSourceFactory
+    private let chargeLimitProvider: () -> Int?
+    private var cachedChargeLimit: (value: Int?, readAt: TimeInterval)?
     nonisolated(unsafe) private var runLoopSource: CFRunLoopSource?
     nonisolated(unsafe) private var lowPowerObserver: NSObjectProtocol?
     nonisolated(unsafe) private var callbackContext: Unmanaged<BatteryCallbackContext>?
@@ -114,11 +116,13 @@ final class BatteryMonitor: BatteryMonitoring {
         },
         iopsRunLoopSourceFactory: @escaping IOPSRunLoopSourceFactory = { context, callback in
             IOPSNotificationCreateRunLoopSource(callback, context)?.takeRetainedValue()
-        }
+        },
+        chargeLimitProvider: @escaping () -> Int? = { SystemChargeLimitReader.chargeLimit() }
     ) {
         self.reader = reader
         self.lowPowerModeProvider = lowPowerModeProvider
         self.iopsRunLoopSourceFactory = iopsRunLoopSourceFactory
+        self.chargeLimitProvider = chargeLimitProvider
         (updates, continuation) = MonitorStream.make(of: BatteryStatus.self)
     }
 
@@ -212,7 +216,8 @@ final class BatteryMonitor: BatteryMonitoring {
                     ? reading.timeToFullChargeMinutes
                     : nil,
                 isLowPowerMode: lowPowerModeProvider(),
-                isConnectedToPower: reading.isConnectedToPower
+                isConnectedToPower: reading.isConnectedToPower,
+                chargeLimitPercent: reading.isCharging && reading.isConnectedToPower ? currentChargeLimit() : nil
             )
         } else {
             status = BatteryStatus(
@@ -227,6 +232,16 @@ final class BatteryMonitor: BatteryMonitoring {
         }
 
         continuation.yield(status)
+    }
+
+    private func currentChargeLimit() -> Int? {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cachedChargeLimit, now - cachedChargeLimit.readAt < 60 {
+            return cachedChargeLimit.value
+        }
+        let limit = chargeLimitProvider()
+        cachedChargeLimit = (limit, now)
+        return limit
     }
 
     private func teardownNotifications() {

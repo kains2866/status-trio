@@ -119,6 +119,28 @@ final class PresentationTextMapperTests: XCTestCase {
         }
     }
 
+    func testBatteryEstimateTargetsTheChargeLimitUnlessOverridden() {
+        let localization = makeLocalization(.simplifiedChinese)
+        let battery = BatteryStatus(
+            rawPercentage: 60, isPresent: true, isCharging: true, timeToFullChargeMinutes: 120,
+            isLowPowerMode: false, isConnectedToPower: true, chargeLimitPercent: 80
+        )
+        let cases: [(ChargeToFullNowPresentation, String)] = [
+            (.hidden, "预计 1 小时充到 80%"),
+            (.available, "预计 1 小时充到 80%"),
+            (.applying, "预计 2 小时充满"),
+            (.chargingToFull, "预计 2 小时充满"),
+            (.cancelConfirmationRequired(limit: 80), "预计 2 小时充满"),
+            (.limitRestored(limit: 85), "预计 1 小时 15 分钟充到 85%")
+        ]
+        for (action, expected) in cases {
+            XCTAssertEqual(
+                PanelPresentationMapper.batterySubtitle(battery, localization: localization, chargeToFullNow: action),
+                expected
+            )
+        }
+    }
+
     func testWiFiValueAndSubtitleForEveryState() {
         let localization = makeLocalization(.simplifiedChinese)
         let cases: [(WiFiStatus, String, String)] = [

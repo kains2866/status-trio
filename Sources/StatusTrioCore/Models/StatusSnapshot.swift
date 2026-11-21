@@ -8,6 +8,7 @@ struct BatteryStatus: Equatable, Sendable {
     let timeToFullChargeMinutes: Int?
     let isLowPowerMode: Bool
     let isConnectedToPower: Bool
+    let chargeLimitPercent: Int?
 
     init(
         rawPercentage: Int?,
@@ -16,7 +17,8 @@ struct BatteryStatus: Equatable, Sendable {
         isCharged: Bool = false,
         timeToFullChargeMinutes: Int? = nil,
         isLowPowerMode: Bool,
-        isConnectedToPower: Bool
+        isConnectedToPower: Bool,
+        chargeLimitPercent: Int? = nil
     ) {
         self.rawPercentage = rawPercentage
         self.isPresent = isPresent
@@ -25,6 +27,7 @@ struct BatteryStatus: Equatable, Sendable {
         self.timeToFullChargeMinutes = timeToFullChargeMinutes
         self.isLowPowerMode = isLowPowerMode
         self.isConnectedToPower = isConnectedToPower
+        self.chargeLimitPercent = chargeLimitPercent
     }
 
     var percentage: Int {

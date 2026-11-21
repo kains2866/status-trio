@@ -219,13 +219,26 @@ enum PanelPresentationMapper {
         return localization.format(.batteryTitle, battery.percentage)
     }
 
-    static func batteryTimeToFullText(minutes: Int?, localization: Localization) -> String {
+    static func batteryTimeToFullText(
+        minutes: Int?,
+        targetPercent: Int? = nil,
+        localization: Localization
+    ) -> String {
         guard let minutes, minutes > 0 else {
             return localization.string(.batteryStateCalculatingTimeToFull)
         }
 
         let hours = minutes / 60
         let remainingMinutes = minutes % 60
+        if let targetPercent {
+            if hours == 0 {
+                return localization.format(.batteryTimeToChargeLimitMinutes, remainingMinutes, targetPercent)
+            }
+            if remainingMinutes == 0 {
+                return localization.format(.batteryTimeToChargeLimitHours, hours, targetPercent)
+            }
+            return localization.format(.batteryTimeToChargeLimitHoursMinutes, hours, remainingMinutes, targetPercent)
+        }
         if hours == 0 {
             return localization.format(.batteryTimeToFullMinutes, remainingMinutes)
         }
@@ -233,6 +246,31 @@ enum PanelPresentationMapper {
             return localization.format(.batteryTimeToFullHours, hours)
         }
         return localization.format(.batteryTimeToFullHoursMinutes, hours, remainingMinutes)
+    }
+
+    private static func chargeTimeEstimate(
+        _ battery: BatteryStatus,
+        _ action: ChargeToFullNowPresentation
+    ) -> (minutes: Int?, target: Int?) {
+        let fullEstimate: (minutes: Int?, target: Int?) = (battery.timeToFullChargeMinutes, nil)
+        let limit: Int?
+        switch action {
+        case .applying, .chargingToFull, .cancelConfirmationRequired, .cancelPending,
+             .cancelling, .cancelFailed, .cancelLimitChangedConfirmation:
+            return fullEstimate
+        case .limitRestored(let restoredLimit):
+            limit = restoredLimit
+        case .hidden, .available, .failed, .unavailable:
+            limit = battery.chargeLimitPercent
+        }
+        guard let minutes = fullEstimate.minutes, minutes > 0,
+              let limit, (1..<100).contains(limit),
+              let current = battery.rawPercentage, (0..<limit).contains(current)
+        else { return fullEstimate }
+
+        let fraction = Double(limit - current) / Double(100 - current)
+        let scaled = max(1, Int((Double(minutes) * fraction).rounded()))
+        return (scaled, limit)
     }
 
     static func batterySubtitle(
@@ -249,8 +287,10 @@ enum PanelPresentationMapper {
         if battery.isCharging {
             // A known estimate always wins, including while Charge to Full Now
             // is running; the click only supplies a placeholder until then.
+            let estimate = chargeTimeEstimate(battery, chargeToFullNow)
             return batteryTimeToFullText(
-                minutes: battery.timeToFullChargeMinutes,
+                minutes: estimate.minutes,
+                targetPercent: estimate.target,
                 localization: localization
             )
         }
