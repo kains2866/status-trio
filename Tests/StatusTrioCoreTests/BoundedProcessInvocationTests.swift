@@ -6,6 +6,16 @@ import Testing
 /// reaping are what keep those queues from being occupied for good. These cover
 /// the two ways a synchronous `waitUntilExit()` used to hang.
 struct BoundedProcessInvocationTests {
+    @Test func anExpiredDrainCannotReportSuccess() async {
+        let outcome = await BoundedProcessInvocation.run(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", "printf ready"],
+            timeout: .milliseconds(30),
+            onProcessStarted: { _ in Thread.sleep(forTimeInterval: 0.12) }
+        )
+        #expect(outcome == .timedOut)
+    }
+
     @Test func runSyncReturnsStdoutOfAShortLivedChild() {
         let outcome = BoundedProcessInvocation.runSync(
             executableURL: URL(fileURLWithPath: "/bin/sh"),
