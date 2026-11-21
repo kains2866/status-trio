@@ -23,6 +23,19 @@ struct OutputDeviceRow: View {
                     onSelect: onSelectListeningMode
                 )
                 .padding(.leading, Self.modeLeadingInset)
+            } else if state.showsListeningModePlaceholder {
+                BluetoothListeningModeControl(
+                    presentation: BluetoothListeningModePresentation(
+                        availableModes: BluetoothListeningModeController.previewAvailableModes,
+                        selectedMode: nil
+                    ),
+                    onSelect: { _ in }
+                )
+                .redacted(reason: .placeholder)
+                .disabled(true)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .padding(.leading, Self.modeLeadingInset)
             }
         }
     }

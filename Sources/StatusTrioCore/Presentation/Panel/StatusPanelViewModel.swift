@@ -924,6 +924,11 @@ final class StatusPanelViewModel: ObservableObject {
                 .store(in: &sourceDemandCancellables)
             store.bluetoothListeningModes.$presentations
                 .dropFirst()
+                .map { _ in () }
+                .merge(with: store.bluetoothListeningModes.$isAirPodsDiscoveryPending
+                    .removeDuplicates()
+                    .dropFirst()
+                    .map { _ in () })
                 .sink { [weak self] _ in
                     guard let self, isStarted,
                           isVisible(.bluetooth) || isVisible(.volume) else { return }

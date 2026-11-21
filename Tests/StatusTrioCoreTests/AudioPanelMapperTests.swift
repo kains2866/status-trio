@@ -1,4 +1,5 @@
 import AudioToolbox
+import SwiftUI
 import XCTest
 @testable import StatusTrioCore
 
@@ -594,6 +595,50 @@ final class AudioPanelMapperListeningControlTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         addTeardownBlock { TestUserDefaults.removeSuite(named: suiteName) }
         return Localization(defaults: defaults, preferredLanguages: ["en"])
+    }
+
+    func testAirPodsRowKeepsItsHeightBeforeListeningControlArrives() throws {
+        let localization = makeLocalization()
+        let provider = DelayedAirPodsEndpointProvider()
+        let controller = BluetoothListeningModeController(
+            hal: BluetoothListeningModeHAL(backend: FakeListeningModeBackend()),
+            endpointProvider: provider,
+            listenerBackend: FakeListeningModeListenerBackend(),
+            airPodsDiscoveryRetryDelays: []
+        )
+        defer { controller.stop() }
+        let output = AudioOutputDevice(
+            id: 42, name: "Renamed Earbuds", uid: "pods", isCurrent: true, transport: .bluetooth, modelUID: "2014 4c"
+        )
+        let paired = BluetoothDevice(id: "AA:BB:CC:DD:EE:FF", name: "AirPods Pro", kind: .audio, isConnected: true)
+        let status = VolumeStatus(scalar: 0.5, isMuted: false, deviceName: output.name, currentDevice: output, outputDevices: [output])
+
+        func row() throws -> PanelAudioDeviceRow {
+            try XCTUnwrap(AudioPanelMapper.volume(
+                status, controllerAvailable: true, listeningModes: controller, localization: localization
+            ).rows.first)
+        }
+
+        func renderedHeight(_ row: PanelAudioDeviceRow) throws -> CGFloat {
+            let renderer = ImageRenderer(content: OutputDeviceRow(state: row, onSelect: {}, onSelectListeningMode: { _ in })
+                .environmentObject(localization)
+                .frame(width: 320))
+            return try XCTUnwrap(renderer.nsImage).size.height
+        }
+
+        let waiting = try row()
+        XCTAssertNil(waiting.listeningMode)
+        controller.refresh(devices: [paired])
+        let unavailable = try row()
+        XCTAssertEqual(VolumeDeviceRowMetrics.estimatedHeight(for: unavailable), VolumeDeviceRowMetrics.singleLineHeight)
+
+        provider.isReady = true
+        controller.refresh(devices: [paired])
+        let ready = try row()
+        XCTAssertEqual(ready.listeningMode?.isControllable, true)
+        XCTAssertEqual(VolumeDeviceRowMetrics.estimatedHeight(for: waiting), VolumeDeviceRowMetrics.estimatedHeight(for: ready))
+        XCTAssertEqual(try renderedHeight(waiting), try renderedHeight(ready))
+        XCTAssertLessThan(try renderedHeight(unavailable), try renderedHeight(ready))
     }
 
     func testHidingOtherOutputsKeepsCurrentAirPodsListeningControls() {

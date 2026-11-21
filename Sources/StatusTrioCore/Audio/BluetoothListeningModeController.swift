@@ -29,6 +29,7 @@ final class BluetoothListeningModeController: ObservableObject {
     /// The control state per connected, eligible device, keyed by the same
     /// normalized address the battery levels use. Absence means "no control".
     @Published private(set) var presentations: [String: BluetoothListeningModePresentation] = [:]
+    @Published private(set) var isAirPodsDiscoveryPending = true
 
     private let hal: BluetoothListeningModeHAL
     private let endpointProvider: any CoreAudioBluetoothEndpointProviding
@@ -172,11 +173,13 @@ final class BluetoothListeningModeController: ObservableObject {
         cancelAirPodsDiscovery()
         if previewMode {
             refreshPreview(devices: devices)
+            isAirPodsDiscoveryPending = false
             return
         }
         let needsRetry = refreshAirPods(devices: devices)
         refreshHuawei(devices: devices)
-        if needsRetry { retryAirPodsDiscovery(devices: devices) }
+        isAirPodsDiscoveryPending = needsRetry && !airPodsDiscoveryRetryDelays.isEmpty
+        if isAirPodsDiscoveryPending { retryAirPodsDiscovery(devices: devices) }
     }
 
     private func refreshAirPods(devices: [BluetoothDevice]) -> Bool {
@@ -251,6 +254,7 @@ final class BluetoothListeningModeController: ObservableObject {
             guard let self, self.airPodsDiscoveryToken == token else { return }
             self.airPodsDiscoveryTask = nil
             self.airPodsDiscoveryToken = nil
+            self.isAirPodsDiscoveryPending = false
         }
     }
 
@@ -596,6 +600,7 @@ final class BluetoothListeningModeController: ObservableObject {
         failureClearTasks.removeAll()
         presentations = [:]
         resolvedEndpoints = [:]
+        isAirPodsDiscoveryPending = true
         // The panel is going away; the plan's "no residual timer or task once the
         // panel closes" applies to CoreAudio subscriptions too. `syncSubscriptions`
         // with an empty set removes every registered block.

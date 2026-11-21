@@ -28,6 +28,7 @@ struct AirPodsListeningModeDiscoveryTests {
         defer { controller.stop(); retryGate.releaseAll(); events.observation.cancel() }
 
         controller.refresh(devices: [device])
+        #expect(controller.isAirPodsDiscoveryPending)
         #expect(controller.control(forEndpoint: 42) == nil)
         let retryDelay = await retryGate.nextCall()
         try #require(retryDelay == .milliseconds(150))
@@ -36,6 +37,7 @@ struct AirPodsListeningModeDiscoveryTests {
 
         let appeared = await events.stream.first { @Sendable in $0["AABBCCDDEEFF"] != nil }
         try #require(appeared != nil, "A connected AirPods endpoint may become ready after the first discovery")
+        #expect(!controller.isAirPodsDiscoveryPending)
         #expect(controller.control(forEndpoint: 42)?.presentation.selectedMode == .noiseCancellation)
     }
 
@@ -76,7 +78,9 @@ struct AirPodsListeningModeDiscoveryTests {
             try #require(waiting)
             sleeper.releaseAll()
         }
-        let exhausted = await discoveryEventually { sleeper.completionCount == 3 }
+        let exhausted = await discoveryEventually {
+            sleeper.completionCount == 3 && !controller.isAirPodsDiscoveryPending
+        }
         try #require(exhausted)
         provider.isReady = true
         for _ in 0..<20 { await Task.yield() }
@@ -117,6 +121,7 @@ struct AirPodsListeningModeDiscoveryTests {
         sleeper.releaseAll()
         let released = await discoveryEventually { sleeper.completionCount == 1 }
         #expect(released)
+        #expect(controller.isAirPodsDiscoveryPending == (reason == .stop))
         #expect(controller.control(forEndpoint: 42) == nil)
         #expect(provider.discoveryCount == 1, "A cancelled retry must not probe even if its sleep ignores cancellation")
     }

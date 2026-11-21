@@ -21,6 +21,7 @@ struct PanelAudioDeviceRow: Equatable, Identifiable, Sendable {
     var volumeText: String? = nil
     var listeningModeAddress: String? = nil
     var listeningMode: BluetoothListeningModePresentation? = nil
+    var showsListeningModePlaceholder = false
     var isPreview: Bool = false
     var level: AudioDeviceLevel? = nil
     var completedLevelRequestID: UUID? = nil

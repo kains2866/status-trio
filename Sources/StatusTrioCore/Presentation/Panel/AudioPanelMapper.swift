@@ -254,6 +254,10 @@ enum AudioPanelMapper {
             ) { first, second in
                 localization.format(.commonParenthetical, first, second)
             }
+            let control = listeningModes?.control(forEndpoint: device.id)
+            let showsListeningModePlaceholder = listeningModes != nil && control == nil
+                && (isPreview || (listeningModes?.isAirPodsDiscoveryPending == true
+                    && device.isCurrent && device.isBluetoothAudio && maySupportAirPodsListeningMode(device)))
             return PanelAudioDeviceRow(
                 key: PanelAudioDeviceID(id: device.id, uid: device.uid),
                 name: name,
@@ -268,11 +272,26 @@ enum AudioPanelMapper {
                     guard value.isFinite else { return nil }
                     return value.formatted(.percent.precision(.fractionLength(0)).locale(localization.resolvedLanguage.locale))
                 },
-                listeningModeAddress: listeningModes?.control(forEndpoint: device.id)?.address,
-                listeningMode: listeningModes?.control(forEndpoint: device.id)?.presentation,
+                listeningModeAddress: control?.address,
+                listeningMode: control?.presentation,
+                showsListeningModePlaceholder: showsListeningModePlaceholder,
                 isPreview: isPreview,
                 level: device.level ?? AudioDeviceLevel(scalar: readableScalar(device.volume), canAdjust: false, muteState: .unknown, canMute: false)
             )
+        }
+    }
+
+    private static func maySupportAirPodsListeningMode(_ device: AudioOutputDevice) -> Bool {
+        let model = AirPodsModel(modelUID: device.modelUID) ?? AppleBluetoothAudioResolver.airPodsModel(name: device.name)
+        switch model {
+        case .airPodsPro, .airPodsProGen1, .airPodsProGen3, .airPodsMax, .airPodsGen5:
+            return true
+        case .airPodsGen4:
+            let product = device.modelUID?.split(whereSeparator: \.isWhitespace).first
+                .flatMap { BluetoothHexIdentifier.value(from: String($0)) }
+            return product != 0x2019
+        case .airPods, .airPodsGen3, .none:
+            return false
         }
     }
 
