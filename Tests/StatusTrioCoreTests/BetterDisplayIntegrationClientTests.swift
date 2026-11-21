@@ -404,6 +404,21 @@ struct BetterDisplayIntegrationClientTests {
         #expect(bridge.activeObserverCount == 0)
     }
 
+    @Test("Deallocation from a background thread cleans up on the main actor")
+    func backgroundDeallocationCleansUpOnMainActor() async {
+        let bridge = FakeBetterDisplayNotificationBridge()
+        let box = ClientReleaseBox(makeClient(bridge: bridge))
+        box.client?.start { _ in }
+        #expect(bridge.activeObserverCount > 0)
+
+        await Task.detached {
+            box.client = nil
+        }.value
+
+        await bridge.waitForActiveObserverCount(0)
+        #expect(bridge.cancelThreads.allOnMainThread)
+    }
+
     @Test("Launch and termination notifications map without reading their object")
     func lifecycleNotificationsMapToEvents() async throws {
         let bridge = FakeBetterDisplayNotificationBridge()
@@ -535,6 +550,7 @@ private struct FakePostedNotification: Equatable, Sendable {
 
 @MainActor
 private final class FakeBetterDisplayNotificationBridge: BetterDisplayNotificationBridging {
+    nonisolated let cancelThreads = CancelThreadRecorder()
     enum Operation: Equatable, Sendable {
         case addObserver(String)
         case post(String)
@@ -572,7 +588,9 @@ private final class FakeBetterDisplayNotificationBridge: BetterDisplayNotificati
         let id = UUID()
         handlers[id] = HandlerRecord(name: name, handler: handler)
         operations.append(.addObserver(name.rawValue))
+        let cancelThreads = self.cancelThreads
         return FakeBetterDisplayNotificationObservation { [weak self] in
+            cancelThreads.record()
             Task { @MainActor [weak self] in
                 self?.removeObserver(id: id, name: name)
             }
@@ -640,6 +658,27 @@ private final class FakeBetterDisplayNotificationBridge: BetterDisplayNotificati
             }
         }
         observerWaiters = remaining
+    }
+}
+
+private final class CancelThreadRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Bool] = []
+
+    func record() {
+        lock.withLock { values.append(Thread.isMainThread) }
+    }
+
+    var allOnMainThread: Bool {
+        lock.withLock { !values.isEmpty && values.allSatisfy { $0 } }
+    }
+}
+
+private final class ClientReleaseBox: @unchecked Sendable {
+    var client: BetterDisplayIntegrationClient?
+
+    init(_ client: BetterDisplayIntegrationClient) {
+        self.client = client
     }
 }
 

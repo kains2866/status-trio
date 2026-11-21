@@ -96,8 +96,7 @@ final class SystemBetterDisplayNotificationBridge: BetterDisplayNotificationBrid
     }
 }
 
-/// Notification removal is documented as thread-safe. The lock makes the
-/// single-use observation safe to cancel from the client's nonisolated deinit.
+/// Notification removal is thread-safe. The lock makes cancellation single-use.
 private final class SystemBetterDisplayNotificationObservation:
     BetterDisplayNotificationObservation,
     @unchecked Sendable
@@ -162,12 +161,16 @@ final class BetterDisplayIntegrationClient: BetterDisplayRequesting,
     }
 
     deinit {
-        for observation in observations {
-            observation.cancel()
-        }
-        for pendingRequest in pendingRequests.values {
-            pendingRequest.timeoutTask.cancel()
-            pendingRequest.continuation.resume(throwing: BetterDisplayIntegrationError.stopped)
+        let observations = observations
+        let pendingRequests = pendingRequests
+        Task { @MainActor in
+            for observation in observations {
+                observation.cancel()
+            }
+            for pendingRequest in pendingRequests.values {
+                pendingRequest.timeoutTask.cancel()
+                pendingRequest.continuation.resume(throwing: BetterDisplayIntegrationError.stopped)
+            }
         }
     }
 

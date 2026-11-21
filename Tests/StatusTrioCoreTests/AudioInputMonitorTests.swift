@@ -495,6 +495,27 @@ final class AudioInputMonitorTests: XCTestCase {
     XCTAssertTrue(sleeper.cancelledCalls.contains(3), "closing must cancel the replacement loop")
   }
 
+  func testDeallocationCancelsParkedUsagePollingAndReleasesObservation() async throws {
+    let sleeper = DeferredAudioUsageSleeper()
+    let hardware = FakeAudioInputHardware(reading: reading(defaultID: 11))
+    var monitor: AudioInputMonitor? = AudioInputMonitor(
+      hardware: hardware, usageSleep: { _ in try await sleeper.sleep() }
+    )
+    let deinitProbe = DeinitProbe.track(monitor)
+    defer { sleeper.finishAll() }
+
+    monitor?.setEnabled(true)
+    monitor?.setVisible(true)
+    await fulfillment(of: [sleeper.expectCall(1)], timeout: 5)
+    let observation = try XCTUnwrap(hardware.waitForObservation(timeout: 5))
+
+    monitor = nil
+
+    XCTAssertNil(deinitProbe.value)
+    XCTAssertEqual(sleeper.cancelledCalls, [1])
+    XCTAssertTrue(observation.waitUntilStopped(timeout: 1))
+  }
+
   func testDeviceRemovalRefreshesInventoryAndClearsDefaultControls() async throws {
     let hardware = FakeAudioInputHardware(reading: reading(defaultID: 11))
     let monitor = AudioInputMonitor(hardware: hardware)

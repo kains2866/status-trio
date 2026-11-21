@@ -212,6 +212,18 @@ final class AudioInputMonitor: AudioInputMonitoring {
     continuation.yield(.empty)
   }
 
+  deinit {
+    sessionGate?.invalidate()
+    usagePollTask?.cancel()
+    scalarDebounceTask?.cancel()
+    commandTimeoutTask?.cancel()
+    errorExpiryTask?.cancel()
+    if !isStopped {
+      worker.stopObservation()
+      continuation.finish()
+    }
+  }
+
   func setEnabled(_ enabled: Bool) {
     guard !isStopped, enabled != isEnabled else { return }
     if !enabled {
@@ -295,7 +307,7 @@ final class AudioInputMonitor: AudioInputMonitoring {
   }
 
   /// Settings device list visibility. The list orders and hides devices, so it keeps the
-  /// inventory live, but it never renders default-input usage and must not start 1 Hz polling.
+  /// inventory live, but it never renders default-input usage or starts its polling.
   func setDeviceListVisible(_ visible: Bool) {
     guard !isStopped, visible != isDeviceListVisible else { return }
     let wasInventoryVisible = isInventoryVisible
@@ -360,15 +372,14 @@ final class AudioInputMonitor: AudioInputMonitoring {
     let token = UUID()
     scalarDebounceToken = token
     scalarDebounceTask?.cancel()
-    scalarDebounceTask = Task { [weak self] in
-      guard let self else { return }
+    scalarDebounceTask = Task { [weak self, sleep] in
       do {
-        try await self.sleep(.milliseconds(80))
+        try await sleep(.milliseconds(80))
       } catch {
         return
       }
       guard !Task.isCancelled else { return }
-      self.scalarDebounceElapsed(token: token)
+      self?.scalarDebounceElapsed(token: token)
     }
   }
 
@@ -696,15 +707,14 @@ final class AudioInputMonitor: AudioInputMonitoring {
 
   private func scheduleCommandTimeout(for commandID: UUID) {
     commandTimeoutTask?.cancel()
-    commandTimeoutTask = Task { [weak self] in
-      guard let self else { return }
+    commandTimeoutTask = Task { [weak self, sleep, commandTimeout] in
       do {
-        try await self.sleep(self.commandTimeout)
+        try await sleep(commandTimeout)
       } catch {
         return
       }
       guard !Task.isCancelled else { return }
-      self.commandTimedOut(commandID)
+      self?.commandTimedOut(commandID)
     }
   }
 
@@ -891,20 +901,19 @@ final class AudioInputMonitor: AudioInputMonitoring {
     usagePollGeneration &+= 1
     let pollGeneration = usagePollGeneration
     let expectedSession = sessionGeneration
-    usagePollTask = Task { [weak self] in
-      guard let self else { return }
+    usagePollTask = Task { [weak self, usageSleep, usagePollInterval] in
       while !Task.isCancelled {
         do {
-          try await self.usageSleep(self.usagePollInterval)
+          try await usageSleep(usagePollInterval)
         } catch {
           break
         }
-        guard !Task.isCancelled else { break }
+        guard let self, !Task.isCancelled else { break }
         self.refreshDefaultInputUsage(sessionGeneration: expectedSession)
       }
       // A cancelled loop can resume after a close/reopen already installed its replacement.
       // Only the loop that still owns the generation may clear the task reference.
-      if self.usagePollGeneration == pollGeneration {
+      if let self, self.usagePollGeneration == pollGeneration {
         self.usagePollTask = nil
       }
     }
@@ -979,15 +988,14 @@ final class AudioInputMonitor: AudioInputMonitoring {
     errorExpiryTask?.cancel()
     let token = UUID()
     errorExpiryToken = token
-    errorExpiryTask = Task { [weak self] in
-      guard let self else { return }
+    errorExpiryTask = Task { [weak self, sleep] in
       do {
-        try await self.sleep(.seconds(4))
+        try await sleep(.seconds(4))
       } catch {
         return
       }
       guard !Task.isCancelled else { return }
-      self.expireError(token: token)
+      self?.expireError(token: token)
     }
   }
 
