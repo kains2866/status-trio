@@ -25,6 +25,9 @@ final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
     )
     private var updateSourceFallback = UpdateSourceFallback()
     private var manualUpdatePresentation: ManualUpdatePresentation?
+    var isFullScreenActive: @MainActor () -> Bool = { FullScreenActivity.isActive() }
+    private var fullScreenMonitor: FullScreenActivityMonitor?
+    private var didPostponeScheduledCheckForFullScreen = false
 
     var automaticallyChecksForUpdatesBinding: Binding<Bool> {
         Binding(
@@ -52,6 +55,7 @@ final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
         #else
         do {
             try updater.start()
+            startFullScreenMonitor()
         } catch {
             NSAlert(error: error).runModal()
         }
@@ -68,6 +72,47 @@ final class UpdaterManager: NSObject, ObservableObject, SPUUpdaterDelegate {
         manualUpdatePresentation?.begin()
         updater.checkForUpdates()
         #endif
+    }
+
+    func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
+        guard shouldDeferUpdateCheck(updateCheck) else {
+            if updateCheck == .updatesInBackground {
+                didPostponeScheduledCheckForFullScreen = false
+            }
+            return
+        }
+        didPostponeScheduledCheckForFullScreen = true
+        throw NSError(
+            domain: "com.lingsmbp.StatusTrio.Updater",
+            code: 1,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Update check postponed while another app is in full screen.",
+            ]
+        )
+    }
+
+    func shouldDeferUpdateCheck(_ updateCheck: SPUUpdateCheck) -> Bool {
+        updateCheck == .updatesInBackground && isFullScreenActive()
+    }
+
+    private func startFullScreenMonitor() {
+        guard fullScreenMonitor == nil else { return }
+        let monitor = FullScreenActivityMonitor(
+            probe: { [weak self] in self?.isFullScreenActive() ?? false }
+        )
+        monitor.onExitFullScreen = { [weak self] in
+            self?.resumePostponedScheduledCheck()
+        }
+        monitor.start()
+        fullScreenMonitor = monitor
+    }
+
+    private func resumePostponedScheduledCheck() {
+        guard didPostponeScheduledCheckForFullScreen, !isFullScreenActive() else { return }
+        didPostponeScheduledCheckForFullScreen = false
+        guard automaticallyChecksForUpdates, canCheckForUpdates else { return }
+        updater.checkForUpdatesInBackground()
     }
 
     func feedURLString(for updater: SPUUpdater) -> String? {
