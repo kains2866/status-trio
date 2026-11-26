@@ -55,13 +55,16 @@ struct SystemPmsetRunner: PmsetRunning {
 
     private let timeout: Duration
     private let executableURL: URL
+    private let usesUnifiedPowerModeKey: Bool
 
     init(
         timeout: Duration = SystemPmsetRunner.defaultTimeout,
-        executableURL: URL = URL(fileURLWithPath: LowPowerModeCommand.pmsetPath)
+        executableURL: URL = URL(fileURLWithPath: LowPowerModeCommand.pmsetPath),
+        usesUnifiedPowerModeKey: Bool = HighPowerModeCommand.runningOSUsesUnifiedPowerModeKey
     ) {
         self.timeout = timeout
         self.executableURL = executableURL
+        self.usesUnifiedPowerModeKey = usesUnifiedPowerModeKey
     }
 
     func setLowPowerMode(enabled: Bool) async throws {
@@ -73,9 +76,9 @@ struct SystemPmsetRunner: PmsetRunning {
         // deliberately not consulted here: it is a separate child process and
         // this path only needs the write itself.
         if enabled {
-            // `powermode 0` is Automatic: it clears High Power Mode. The old
-            // `highpowermode` argument is no longer accepted on macOS 26+.
-            _ = try? await runWrite(arguments: HighPowerModeCommand.arguments(enabled: false))
+            _ = try? await runWrite(arguments: HighPowerModeCommand.arguments(
+                enabled: false, usesUnifiedPowerModeKey: usesUnifiedPowerModeKey
+            ))
         }
         try await runWrite(arguments: LowPowerModeCommand.arguments(enabled: enabled))
     }
@@ -116,7 +119,9 @@ struct SystemPmsetRunner: PmsetRunning {
         if enabled {
             _ = try? await runWrite(arguments: LowPowerModeCommand.arguments(enabled: false))
         }
-        try await runWrite(arguments: HighPowerModeCommand.arguments(enabled: enabled))
+        try await runWrite(arguments: HighPowerModeCommand.arguments(
+            enabled: enabled, usesUnifiedPowerModeKey: usesUnifiedPowerModeKey
+        ))
     }
 
     private func runWrite(arguments: [String]) async throws {

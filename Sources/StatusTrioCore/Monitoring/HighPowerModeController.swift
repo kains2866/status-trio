@@ -35,6 +35,14 @@ final class HighPowerModeController: ObservableObject {
 
     private let platformSupported: Bool
 
+    static var supportsHighPowerMode: Bool {
+#if arch(arm64)
+        return true
+#else
+        return false
+#endif
+    }
+
     static var supportsCurrentPlatform: Bool {
 #if arch(arm64)
         if #available(macOS 26.4, *) { return true }
@@ -44,7 +52,7 @@ final class HighPowerModeController: ObservableObject {
 
     init(
         client: any HighPowerModeClienting = XPCPrivilegedHighPowerClient(),
-        platformSupported: Bool = HighPowerModeController.supportsCurrentPlatform
+        platformSupported: Bool = HighPowerModeController.supportsHighPowerMode
     ) {
         self.client = client
         self.platformSupported = platformSupported

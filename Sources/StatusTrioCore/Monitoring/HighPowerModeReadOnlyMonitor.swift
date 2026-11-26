@@ -20,7 +20,7 @@ final class HighPowerModeReadOnlyMonitor: ObservableObject {
     init(
         reader: @escaping @Sendable () -> HighPowerModeSystemStatus? = { HighPowerModeSystemReader.read() },
         observer: any NetworkChangeObserving = HighPowerModeChangeObserver(),
-        platformSupported: Bool = HighPowerModeController.supportsCurrentPlatform
+        platformSupported: Bool = HighPowerModeController.supportsHighPowerMode
     ) {
         self.reader = reader
         self.observer = observer
