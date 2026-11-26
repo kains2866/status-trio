@@ -110,6 +110,22 @@ final class SystemPowerReaderTests: XCTestCase {
                           payload: [0, 0, 0x7a, 0x43]), "250 W is outside any backlight rail")
     }
 
+    func testBacklightSampleSkipsStaleRailWhenBuiltInPanelIsOff() {
+        let readAt = Date(timeIntervalSince1970: 1_000)
+        var readCount = 0
+        let exchange: ([UInt8]) -> [UInt8]? = { request in
+            readCount += 1
+            if request[42] == 9 { return self.info() }
+            return self.value(self.floatPayload(0.0625))
+        }
+
+        XCTAssertNil(SystemPowerReader.readDisplayPower(exchange: exchange, readAt: readAt, panelIsOn: { false }))
+        XCTAssertEqual(readCount, 0)
+        let expected = SystemPowerSample(watts: 0.0625, readAt: readAt)
+        XCTAssertEqual(SystemPowerReader.readDisplayPower(exchange: exchange, readAt: readAt, panelIsOn: { true }), expected)
+        XCTAssertEqual(SystemPowerReader.readDisplayPower(exchange: exchange, readAt: readAt, panelIsOn: { nil }), expected)
+    }
+
     func testPortRailsMultiplyVoltageByCurrentAndIgnoreSilentChannels() {
         let rails = SystemPowerReader.readPortOutput { request in
             XCTAssertNotEqual(request[42], 6)

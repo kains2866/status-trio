@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import IOKit
 
@@ -76,12 +77,30 @@ struct SystemPowerReader: Sendable {
         // backlight key hides that branch. Port keys that do not answer stay
         // `.unavailable` so the caller can fall back to PowerOutDetails.
         if breakdown {
-            if let watts = Self.readValue(sensor: .display, exchange: exchange) {
-                readings.display = SystemPowerSample(watts: watts, readAt: readAt)
-            }
+            readings.display = Self.readDisplayPower(exchange: exchange, readAt: readAt)
             readings.portRails = Self.readPortOutput(exchange: exchange, readAt: readAt)
         }
         return readings
+    }
+
+    static func readDisplayPower(
+        exchange: ([UInt8]) -> [UInt8]?,
+        readAt: Date,
+        panelIsOn: () -> Bool? = { builtInPanelIsOn() }
+    ) -> SystemPowerSample? {
+        guard panelIsOn() != false,
+              let watts = readValue(sensor: .display, exchange: exchange) else { return nil }
+        return SystemPowerSample(watts: watts, readAt: readAt)
+    }
+
+    private static func builtInPanelIsOn() -> Bool? {
+        var count: UInt32 = 0
+        guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else { return nil }
+        var displays = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        guard CGGetOnlineDisplayList(count, &displays, &count) == .success, count > 0 else { return nil }
+        return displays.prefix(Int(count)).contains { display in
+            CGDisplayIsBuiltin(display) != 0 && CGDisplayIsAsleep(display) == 0
+        }
     }
 
     enum Sensor: UInt32 {
