@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "ファン平均";
 "hardware.monitor.disk.read" = "読み取り";
 "hardware.monitor.disk.write" = "書き込み";
+"hardware.monitor.disk" = "ディスク I/O";
+"hardware.detail.title.disk" = "ディスク";
+"hardware.detail.usedSpace" = "使用容量";
+"hardware.detail.freeSpace" = "空き容量";
 "hardware.monitor.settings.refresh.cpuUsage" = "CPU使用率";
 "hardware.monitor.settings.refresh.gpuUsage" = "GPU使用率";
 "hardware.monitor.settings.refresh.memory" = "メモリ";

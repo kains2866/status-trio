@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "Ср. вентилятор";
 "hardware.monitor.disk.read" = "Чтение";
 "hardware.monitor.disk.write" = "Запись";
+"hardware.monitor.disk" = "Диск I/O";
+"hardware.detail.title.disk" = "Диск";
+"hardware.detail.usedSpace" = "Занято";
+"hardware.detail.freeSpace" = "Свободно";
 "hardware.monitor.settings.refresh.cpuUsage" = "Загрузка ЦП";
 "hardware.monitor.settings.refresh.gpuUsage" = "Загрузка ГП";
 "hardware.monitor.settings.refresh.memory" = "Память";

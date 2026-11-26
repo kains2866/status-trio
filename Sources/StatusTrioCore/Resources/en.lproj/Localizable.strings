@@ -406,6 +406,10 @@
 "hardware.monitor.fan.average" = "Avg fan";
 "hardware.monitor.disk.read" = "Read";
 "hardware.monitor.disk.write" = "Write";
+"hardware.monitor.disk" = "Disk I/O";
+"hardware.detail.title.disk" = "Disk";
+"hardware.detail.usedSpace" = "Used space";
+"hardware.detail.freeSpace" = "Free space";
 "hardware.monitor.settings.refresh.cpuUsage" = "CPU Usage";
 "hardware.monitor.settings.refresh.gpuUsage" = "GPU Usage";
 "hardware.monitor.settings.refresh.memory" = "Memory";

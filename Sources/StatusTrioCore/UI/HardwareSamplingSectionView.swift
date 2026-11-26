@@ -5,19 +5,37 @@ struct HardwareSamplingSectionView: View {
     let store: SystemStatusStore
     @ObservedObject var settings: SettingsStore
     @StateObject private var service = HardwareMetricsService()
+    @State private var isSampling = false
+    @State private var showsDiskDetails = false
+    @State private var capacity: DiskCapacityReading?
 
     var body: some View {
-        HardwareSamplingReadings(observable: service.observable)
+        HardwareSamplingReadings(observable: service.observable, capacity: capacity,
+                                 showsDiskDetails: $showsDiskDetails, backgroundStyle: settings.panelBackgroundStyle)
             .onReceive(store.$isPopoverVisible.removeDuplicates()
                 .combineLatest(store.$isDisplayAsleep.removeDuplicates())) { visible, asleep in
                 updateSampling(visible: visible, asleep: asleep)
             }
+            .onChange(of: showsDiskDetails) { showsDetails in
+                let wantsDiskDetails = showsDetails && isSampling
+                service.setDetailDemand(wantsDiskDetails ? .disk : nil)
+                if wantsDiskDetails {
+                    service.forceRefresh()
+                }
+            }
             .onChange(of: settings.hardwareRefreshIntervals) { _ in
                 service.forceRefresh()
             }
-            .onDisappear {
-                service.end(.panel)
+            .task(id: isSampling) {
+                guard isSampling else { return }
+                let reading = await Task.detached(priority: .utility) {
+                    DiskCapacityReader.read()
+                }.value
+                if !Task.isCancelled, isSampling {
+                    capacity = reading
+                }
             }
+            .onDisappear { stopSampling() }
     }
 
     private func updateSampling(visible: Bool, asleep: Bool) {
@@ -25,9 +43,10 @@ struct HardwareSamplingSectionView: View {
             service.sleep()
         }
         guard visible, !asleep else {
-            service.end(.panel)
+            stopSampling()
             return
         }
+        isSampling = true
         if service.isAsleep {
             service.wake()
         }
@@ -36,74 +55,12 @@ struct HardwareSamplingSectionView: View {
         }
         service.begin(.panel, metrics: HardwareMetricsService.hardwareSummaryMetricIDs)
     }
-}
 
-private struct HardwareSamplingReadings: View {
-    @ObservedObject var observable: HardwareMonitorObservable
-    @EnvironmentObject private var localization: Localization
-
-    var body: some View {
-        let snapshot = observable.summarySnapshot
-        VStack(alignment: .leading, spacing: 7) {
-            Label(localization.string(.hardwareMonitorTitle), systemImage: PopupSection.hardware.systemImage)
-                .font(.subheadline.weight(.semibold))
-                .accessibilityAddTraits(.isHeader)
-
-            reading(.hardwareMonitorCPU, snapshot.cpuUsage)
-            reading(.hardwareMonitorGPU, snapshot.gpuUsage)
-            reading(.hardwareMonitorMemory, snapshot.memoryUsage)
-            reading(.hardwareMonitorTemperature, snapshot.cpuTemperature)
-            reading(.hardwareMonitorGPUTemperature, snapshot.gpuTemperature)
-            reading(.hardwareMonitorFanAverage, snapshot.averageFanSample)
-            reading(.hardwareMonitorDownload, snapshot.networkDownload)
-            reading(.hardwareMonitorUpload, snapshot.networkUpload)
-            reading(.hardwareMonitorDiskRead, snapshot.diskRead)
-            reading(.hardwareMonitorDiskWrite, snapshot.diskWrite)
-        }
-    }
-
-    private func reading(_ title: LocalizationKey, _ sample: HardwareMetricSample) -> some View {
-        LabeledContent(localization.string(title)) {
-            Text(value(for: sample))
-                .monospacedDigit()
-                .foregroundStyle(sample.availability == .stale ? .tertiary : .secondary)
-        }
-        .font(.caption)
-        .accessibilityLabel(localization.string(title))
-        .accessibilityValue(
-            sample.availability == .stale && sample.value != nil
-                ? "\(value(for: sample)), \(localization.string(.hardwareMonitorStale))"
-                : value(for: sample)
-        )
-    }
-
-    private func value(for sample: HardwareMetricSample) -> String {
-        guard let value = sample.value, value.isFinite else {
-            return localization.string(availabilityKey(for: sample))
-        }
-        switch sample.unit {
-        case .percent:
-            return (value / 100).formatted(.percent.precision(.fractionLength(0)))
-        case .celsius:
-            return Measurement(value: value, unit: UnitTemperature.celsius)
-                .formatted(.measurement(width: .abbreviated, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(0))))
-        case .rpm:
-            return localization.format(.hardwareMonitorRPM, value.formatted(.number.precision(.fractionLength(0))))
-        case .bytesPerSecond:
-            let bytes = Measurement(value: value, unit: UnitInformationStorage.bytes)
-                .formatted(.measurement(width: .abbreviated))
-            return "\(bytes)/s"
-        case .none:
-            return value.formatted()
-        }
-    }
-
-    private func availabilityKey(for sample: HardwareMetricSample) -> LocalizationKey {
-        switch sample.availability {
-        case .collecting: .hardwareMonitorCollecting
-        case .unsupported: sample.metadata.isFanless ? .hardwareMonitorFanless : .hardwareMonitorUnsupported
-        case .stale: .hardwareMonitorStale
-        case .temporarilyUnavailable, .measured: .hardwareMonitorUnavailable
-        }
+    private func stopSampling() {
+        isSampling = false
+        showsDiskDetails = false
+        capacity = nil
+        service.setDetailDemand(nil)
+        service.end(.panel)
     }
 }

@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "팬 평균";
 "hardware.monitor.disk.read" = "읽기";
 "hardware.monitor.disk.write" = "쓰기";
+"hardware.monitor.disk" = "디스크 I/O";
+"hardware.detail.title.disk" = "디스크";
+"hardware.detail.usedSpace" = "사용 공간";
+"hardware.detail.freeSpace" = "여유 공간";
 "hardware.monitor.settings.refresh.cpuUsage" = "CPU 사용량";
 "hardware.monitor.settings.refresh.gpuUsage" = "GPU 사용량";
 "hardware.monitor.settings.refresh.memory" = "메모리";

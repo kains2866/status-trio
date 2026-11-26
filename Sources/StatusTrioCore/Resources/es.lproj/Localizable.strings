@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "Ventilador medio";
 "hardware.monitor.disk.read" = "Lectura";
 "hardware.monitor.disk.write" = "Escritura";
+"hardware.monitor.disk" = "E/S de disco";
+"hardware.detail.title.disk" = "Disco";
+"hardware.detail.usedSpace" = "Espacio usado";
+"hardware.detail.freeSpace" = "Espacio libre";
 "hardware.monitor.settings.refresh.cpuUsage" = "Uso de CPU";
 "hardware.monitor.settings.refresh.gpuUsage" = "Uso de GPU";
 "hardware.monitor.settings.refresh.memory" = "Memoria";

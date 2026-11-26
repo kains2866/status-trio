@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "Ventola media";
 "hardware.monitor.disk.read" = "Lettura";
 "hardware.monitor.disk.write" = "Scrittura";
+"hardware.monitor.disk" = "I/O disco";
+"hardware.detail.title.disk" = "Disco";
+"hardware.detail.usedSpace" = "Spazio usato";
+"hardware.detail.freeSpace" = "Spazio libero";
 "hardware.monitor.settings.refresh.cpuUsage" = "Utilizzo CPU";
 "hardware.monitor.settings.refresh.gpuUsage" = "Utilizzo GPU";
 "hardware.monitor.settings.refresh.memory" = "Memoria";

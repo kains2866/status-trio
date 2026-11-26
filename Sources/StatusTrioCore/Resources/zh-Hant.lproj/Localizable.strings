@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "風扇均速";
 "hardware.monitor.disk.read" = "讀取";
 "hardware.monitor.disk.write" = "寫入";
+"hardware.monitor.disk" = "磁碟 I/O";
+"hardware.detail.title.disk" = "磁碟";
+"hardware.detail.usedSpace" = "已用空間";
+"hardware.detail.freeSpace" = "剩餘空間";
 "hardware.monitor.settings.refresh.cpuUsage" = "CPU 佔用";
 "hardware.monitor.settings.refresh.gpuUsage" = "GPU 佔用";
 "hardware.monitor.settings.refresh.memory" = "記憶體";

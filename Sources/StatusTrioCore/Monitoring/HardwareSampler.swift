@@ -40,6 +40,7 @@ final class HardwareSampler: @unchecked Sendable {
                 self.sensorReader.resetCapabilities()
                 self.networkReader.resetSession()
                 self.diskReader.reset()
+                self.diskVolumeReader.reset()
                 self.hasAttemptedCPURead = false
                 self.temperatureCoordinator.reset()
                 self.releaseHIDReader()
@@ -58,6 +59,10 @@ final class HardwareSampler: @unchecked Sendable {
     /// Drops the network session counters when the network detail page closes.
     func resetNetworkSession() {
         queue.async { self.networkReader.resetSession() }
+    }
+
+    func resetDiskDetails() {
+        queue.async { self.diskVolumeReader.reset() }
     }
 
     /// Mirrors which temperature metrics still have a consumer. Metrics that

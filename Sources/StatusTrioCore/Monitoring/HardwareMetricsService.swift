@@ -451,6 +451,7 @@ final class HardwareMetricsService: ObservableObject {
         generation &+= 1
         if previous == .cpu, kind != .cpu { sampler.releaseFrequencyReader() }
         if previous == .network, kind != .network { sampler.resetNetworkSession() }
+        if previous == .disk { sampler.resetDiskDetails() }
         observable.clearDetailPayloads(except: kind)
         if kind != nil, isRunning, !isAsleep {
             forcedIDs.formUnion(requestedIDs)

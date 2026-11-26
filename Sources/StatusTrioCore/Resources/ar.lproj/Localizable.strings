@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "متوسط المروحة";
 "hardware.monitor.disk.read" = "قراءة";
 "hardware.monitor.disk.write" = "كتابة";
+"hardware.monitor.disk" = "إدخال/إخراج القرص";
+"hardware.detail.title.disk" = "القرص";
+"hardware.detail.usedSpace" = "المساحة المستخدمة";
+"hardware.detail.freeSpace" = "المساحة الحرة";
 "hardware.monitor.settings.refresh.cpuUsage" = "استخدام المعالج";
 "hardware.monitor.settings.refresh.gpuUsage" = "استخدام وحدة الرسوميات";
 "hardware.monitor.settings.refresh.memory" = "الذاكرة";

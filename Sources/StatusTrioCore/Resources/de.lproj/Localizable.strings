@@ -407,6 +407,10 @@
 "hardware.monitor.fan.average" = "Ø Lüfter";
 "hardware.monitor.disk.read" = "Lesen";
 "hardware.monitor.disk.write" = "Schreiben";
+"hardware.monitor.disk" = "Festplatten-E/A";
+"hardware.detail.title.disk" = "Festplatte";
+"hardware.detail.usedSpace" = "Belegter Speicher";
+"hardware.detail.freeSpace" = "Freier Speicher";
 "hardware.monitor.settings.refresh.cpuUsage" = "CPU-Auslastung";
 "hardware.monitor.settings.refresh.gpuUsage" = "GPU-Auslastung";
 "hardware.monitor.settings.refresh.memory" = "Speicher";
