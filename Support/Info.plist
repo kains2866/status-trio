@@ -19,9 +19,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.7</string>
+	<string>1.9.8</string>
 	<key>CFBundleVersion</key>
-	<string>54</string>
+	<string>55</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Status Trio processes audio from apps you choose so you can adjust their volume independently. Audio is not saved or uploaded.</string>
 	<key>LSMinimumSystemVersion</key>
