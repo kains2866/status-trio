@@ -1,6 +1,5 @@
 import AppKit
 import CoreGraphics
-import CryptoKit
 import Foundation
 import Testing
 @testable import StatusTrioCore
@@ -16,18 +15,15 @@ struct ChargingEffectRenderingTests {
             ),
             phase: nil
         )
-        let fingerprint = SHA256.hash(data: Data(pixels.bytes))
-            .map { String(format: "%02x", $0) }
-            .joined()
+        let fingerprint = rasterFingerprint(Data(pixels.bytes))
 
         // macOS 27 supplies different wifi.slash metrics on the local Retina
         // display (50x47) and CI's 1x display (51x46), even without image caching.
-        // Isolated AppKit probes exactly reproduce each environment's symbol
-        // pixels; battery and volume pixels are identical. Select one exact
-        // baseline from those independent system metrics, preserving the #30
-        // measured-ink correction. Unknown environments must fail explicitly.
-        let baselines = staticSymbolRasterBaselineFingerprints()
-        if !(baselines?.contains(fingerprint) ?? false)
+        // For the 50x47 metrics, compare against independent AppKit ink and a
+        // fixed hash for the battery and volume. The other metrics still use
+        // their recorded full-scene fingerprints.
+        let matches = matchesStaticSymbolRaster(pixels, fingerprint: fingerprint)
+        if matches != true
             || ProcessInfo.processInfo.environment["STATUS_TRIO_STATIC_ICON_DIAGNOSTICS"] == "1" {
             print(
                 "STATIC_ICON_DIAGNOSTIC os=\(ProcessInfo.processInfo.operatingSystemVersionString)"
@@ -37,11 +33,11 @@ struct ChargingEffectRenderingTests {
             )
             printStaticSymbolRasterDiagnostics()
         }
-        let expected = try #require(
-            baselines,
+        let matchesReference = try #require(
+            matches,
             "Unrecorded system symbol metrics; inspect raster diagnostics"
         )
-        #expect(expected.contains(fingerprint))
+        #expect(matchesReference)
     }
 
     @Test func nonChargingBatteryIgnoresSuppliedChargingPhase() throws {
