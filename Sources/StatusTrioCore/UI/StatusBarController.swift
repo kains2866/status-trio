@@ -44,6 +44,7 @@ final class StatusBarController: NSObject {
     private let popover = AnchoredStatusPanel()
     private let applicationAudioMixer = ApplicationAudioMixerController()
     private var applicationAudioMixerSettingsCancellable: AnyCancellable?
+    private let applicationAudioMixerInlineSurfaceID = UUID()
     private let store: SystemStatusStore
     private let settings: SettingsStore
     private let panelActions: StatusPanelActions
@@ -266,12 +267,23 @@ final class StatusBarController: NSObject {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
-        applicationAudioMixerSettingsCancellable = Publishers.CombineLatest(settings.$applicationAudioMixerEnabled, settings.$applicationAudioMixerPresentation)
-            .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
-            .sink { [weak self] enabled, presentation in
-                self?.applicationAudioMixer.presentation = presentation
-                self?.applicationAudioMixer.setEnabled(enabled)
-            }
+        applicationAudioMixerSettingsCancellable = Publishers.CombineLatest4(
+            settings.$applicationAudioMixerEnabled,
+            settings.$applicationAudioMixerPresentation,
+            store.$isPopoverVisible,
+            settings.$enabledPopupSections
+        )
+        .sink { [weak self] enabled, presentation, panelVisible, sections in
+            guard let self else { return }
+            let mixer = self.applicationAudioMixer
+            if mixer.presentation != presentation { mixer.presentation = presentation }
+            if mixer.isEnabled != enabled { mixer.setEnabled(enabled) }
+            let showsAudio = sections.contains(.volume) || sections.contains(.audioInput)
+            mixer.setSurfaceVisible(
+                panelVisible && presentation == .inline && showsAudio,
+                id: self.applicationAudioMixerInlineSurfaceID
+            )
+        }
 
         statusItem.isVisible = isVisible
         configureButton()
@@ -491,7 +503,10 @@ final class StatusBarController: NSObject {
         }
     }
 
-    func stopApplicationAudioMixer() { applicationAudioMixer.stop() }
+    func stopApplicationAudioMixer() {
+        applicationAudioMixerSettingsCancellable?.cancel()
+        applicationAudioMixer.stop()
+    }
 
     private func configurePopover() {
         // The panel replaces NSPopover (issue #186); close teardown runs through

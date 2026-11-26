@@ -72,11 +72,13 @@ extension View {
     func cascadingSubmenu<Content: View>(
         isPresented: Binding<Bool>,
         backgroundStyle: PanelBackgroundStyle = .systemDefault,
+        hasContent: Bool = true,
         @ViewBuilder content: () -> Content
     ) -> some View {
         modifier(CascadingSubmenuModifier(
             isPresented: isPresented,
             backgroundStyle: backgroundStyle,
+            hasContent: hasContent,
             childContent: content()
         ))
     }
@@ -114,6 +116,7 @@ struct CascadingSubmenuButton<Content: View>: View {
 private struct CascadingSubmenuModifier<ChildContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     let backgroundStyle: PanelBackgroundStyle
+    let hasContent: Bool
     let childContent: ChildContent
     @Environment(\.cascadingSubmenuCoordinator) private var coordinator
     @Environment(\.colorScheme) private var colorScheme
@@ -132,6 +135,7 @@ private struct CascadingSubmenuModifier<ChildContent: View>: ViewModifier {
                 isPresented: $isPresented,
                 sharedCoordinator: coordinator ?? fallbackCoordinator,
                 backgroundStyle: backgroundStyle,
+                hasContent: hasContent,
                 childContent: AnyView(childContent)
             ))
             .padding(.horizontal, -8)
@@ -177,6 +181,7 @@ private struct CascadingSubmenuAnchor: NSViewRepresentable {
     @Binding var isPresented: Bool
     let sharedCoordinator: CascadingSubmenuCoordinator
     let backgroundStyle: PanelBackgroundStyle
+    let hasContent: Bool
     let childContent: AnyView
     @Environment(\.self) private var inheritedEnvironment
     @EnvironmentObject private var localization: Localization
@@ -195,7 +200,8 @@ private struct CascadingSubmenuAnchor: NSViewRepresentable {
             view: view,
             binding: $isPresented,
             coordinator: sharedCoordinator,
-            backgroundStyle: backgroundStyle
+            backgroundStyle: backgroundStyle,
+            hasContent: hasContent
         ) { [weak presenter] metrics in
             AnyView(CascadingSubmenuRoot(
                 metrics: metrics, content: childContent,
@@ -260,6 +266,7 @@ private final class CascadingSubmenuPresenter {
     private var child: AnchoredStatusPanel?
     private var host: StatusPanelHostingController<AnyView>?
     private var backgroundStyle: PanelBackgroundStyle = .systemDefault
+    private var hasContent = true
     private var makeContent: ((StatusPanelLayoutMetrics) -> AnyView)?
     private var hoverTask: Task<Void, Never>?
     private var closeTask: Task<Void, Never>?
@@ -272,12 +279,14 @@ private final class CascadingSubmenuPresenter {
         binding: Binding<Bool>,
         coordinator: CascadingSubmenuCoordinator,
         backgroundStyle: PanelBackgroundStyle,
+        hasContent: Bool,
         makeContent: @escaping (StatusPanelLayoutMetrics) -> AnyView
     ) {
         anchor = view
         self.binding = binding
         self.coordinator = coordinator
         self.backgroundStyle = backgroundStyle
+        self.hasContent = hasContent
         self.makeContent = makeContent
         refreshPresentation()
     }
@@ -306,6 +315,7 @@ private final class CascadingSubmenuPresenter {
 
     func hoverExited() {
         cancelPendingHover()
+        if !hasContent, child == nil, binding?.wrappedValue == true { binding?.wrappedValue = false }
         scheduleClose()
     }
 
@@ -341,7 +351,7 @@ private final class CascadingSubmenuPresenter {
     }
 
     private func presentIfNeeded() {
-        guard binding?.wrappedValue == true else {
+        guard binding?.wrappedValue == true, hasContent else {
             coordinator?.close(owner: owner)
             return
         }

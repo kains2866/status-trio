@@ -19,6 +19,11 @@ struct ApplicationAudioMixerHeader: View {
     @ObservedObject var controller: ApplicationAudioMixerController
     let onOpenSettings: () -> Void
     @State private var isPresented = false
+    @State private var surfaceID = UUID()
+
+    private var needsDiscovery: Bool {
+        controller.isEnabled && controller.presentation == .submenu && isPresented
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -36,7 +41,10 @@ struct ApplicationAudioMixerHeader: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle))
-                .cascadingSubmenu(isPresented: $isPresented) {
+                .cascadingSubmenu(
+                    isPresented: $isPresented,
+                    hasContent: controller.hasSectionContent(isInput: isInput)
+                ) {
                     ApplicationAudioMixerView(controller: controller, isInput: isInput)
                 }
             } else {
@@ -62,6 +70,13 @@ struct ApplicationAudioMixerHeader: View {
             if !enabled { isPresented = false }
         }
         .onChange(of: controller.presentation) { _ in isPresented = false }
+        .onReceive(controller.panelDidClose) { isPresented = false }
+        .onAppear { controller.setSurfaceVisible(needsDiscovery, id: surfaceID) }
+        .onChange(of: needsDiscovery) { visible in controller.setSurfaceVisible(visible, id: surfaceID) }
+        .onDisappear {
+            isPresented = false
+            controller.setSurfaceVisible(false, id: surfaceID)
+        }
     }
 }
 
@@ -69,46 +84,40 @@ struct ApplicationAudioMixerView: View {
     @EnvironmentObject private var localization: Localization
     @ObservedObject var controller: ApplicationAudioMixerController
     let isInput: Bool
-    @State private var surfaceID = UUID()
-
     private var rows: [ApplicationAudioMixerRow] { controller.rows.filter { $0.isInput == isInput } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle))
-                    .font(controller.presentation == .inline ? .caption : .headline)
-                    .foregroundStyle(controller.presentation == .inline ? Color.secondary : Color.primary)
-                Spacer()
-                if !isInput, controller.isEnabled || controller.errorMessage != nil {
-                    Button(localization.string(.appMixerReset)) { controller.reset() }
-                        .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+        if controller.hasSectionContent(isInput: isInput) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(localization.string(isInput ? .appMixerInputTitle : .appMixerOutputTitle))
+                        .font(controller.presentation == .inline ? .caption : .headline)
+                        .foregroundStyle(controller.presentation == .inline ? Color.secondary : Color.primary)
+                    Spacer()
+                    if !isInput, controller.isEnabled || controller.errorMessage != nil {
+                        Button(localization.string(.appMixerReset)) { controller.reset() }
+                            .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-            }
-            if !controller.isSupported {
-                message(.appMixerUnsupported)
-            } else {
-                if rows.isEmpty {
-                    message(isInput ? .appMixerNoInput : .appMixerNoOutput)
-                }
-                if controller.presentation == .inline {
-                    ApplicationAudioMixerRowsViewport(rows: rows, controller: controller)
+                if !controller.isSupported {
+                    message(.appMixerUnsupported)
                 } else {
-                    rowsContent
+                    let rows = rows
+                    if !rows.isEmpty {
+                        if controller.presentation == .inline {
+                            ApplicationAudioMixerRowsViewport(rows: rows, controller: controller)
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(rows) { row in
+                                    ApplicationAudioMixerRowView(row: row, controller: controller)
+                                }
+                            }
+                        }
+                    }
+                    if controller.errorMessage != nil {
+                        message(.appMixerFailed)
+                    }
                 }
-                if controller.errorMessage != nil {
-                    message(.appMixerFailed)
-                }
-            }
-        }
-        .onAppear { controller.setSurfaceVisible(true, id: surfaceID) }
-        .onDisappear { controller.setSurfaceVisible(false, id: surfaceID) }
-    }
-
-    private var rowsContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(rows) { row in
-                ApplicationAudioMixerRowView(row: row, controller: controller)
             }
         }
     }
@@ -116,6 +125,12 @@ struct ApplicationAudioMixerView: View {
     private func message(_ key: LocalizationKey) -> some View {
         Text(localization.string(key)).font(.caption).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private extension ApplicationAudioMixerController {
+    func hasSectionContent(isInput: Bool) -> Bool {
+        !isSupported || errorMessage != nil || rows.contains { $0.isInput == isInput }
     }
 }
 
@@ -212,7 +227,8 @@ struct ApplicationAudioMixerInlineSection: View {
     let isInput: Bool
 
     var body: some View {
-        if controller.isEnabled && controller.presentation == .inline {
+        if controller.isEnabled, controller.presentation == .inline,
+           controller.hasSectionContent(isInput: isInput) {
             Divider().padding(.vertical, 4)
             ApplicationAudioMixerView(controller: controller, isInput: isInput)
         }
@@ -240,7 +256,7 @@ private struct ApplicationAudioMixerRowsViewport: View {
         // The outer status panel disables its own scroller while it fits the
         // screen. This independent capped viewport must remain scrollable.
         .environment(\.isScrollEnabled, true)
-        .frame(height: min(240, max(rows.isEmpty ? 0 : 32, contentHeight)))
+        .frame(height: min(240, max(32, contentHeight)))
         .onPreferenceChange(ApplicationAudioMixerRowsHeight.self) { contentHeight = $0 }
     }
 }

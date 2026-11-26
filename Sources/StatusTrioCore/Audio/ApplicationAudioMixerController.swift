@@ -10,6 +10,7 @@ final class ApplicationAudioMixerController: ObservableObject {
     @Published private(set) var isEnabled = false
     @Published var presentation: ApplicationAudioMixerPresentation = .submenu
     let isSupported: Bool
+    let panelDidClose = PassthroughSubject<Void, Never>()
 
     private struct ActiveSession {
         let engine: any ApplicationAudioSessionControlling
@@ -72,6 +73,7 @@ final class ApplicationAudioMixerController: ObservableObject {
         else {
             visibleSurfaces.removeAll()
             updateDiscoveryDemand()
+            panelDidClose.send()
         }
     }
 

@@ -5,6 +5,56 @@ import XCTest
 
 @MainActor
 final class ApplicationAudioMixerControllerTests: XCTestCase {
+    func testApplicationSectionsUseNoSpaceWithoutRowsForTheirDirection() throws {
+        let discovery = MixerDiscoveryFake()
+        let controller = makeController(discovery, MixerSessionFake())
+        controller.enable()
+        controller.setPanelVisible(true)
+        defer { controller.stop() }
+
+        let input = process(1, uid: nil, input: true, output: false)
+        let output = process(2, pid: 20)
+        for presentation in [ApplicationAudioMixerPresentation.inline, .submenu] {
+            controller.presentation = presentation
+            for (processes, showsInput, showsOutput) in [
+                ([], false, false), ([input], true, false),
+                ([output], false, true), ([input, output], true, true), ([], false, false),
+            ] {
+                discovery.send(processes)
+                XCTAssertEqual(try mixerSectionHeight(controller, isInput: true) > 1, showsInput)
+                XCTAssertEqual(try mixerSectionHeight(controller, isInput: false) > 1, showsOutput)
+            }
+        }
+    }
+
+    func testEmptyApplicationSectionStillShowsDiscoveryError() throws {
+        let discovery = MixerDiscoveryFake()
+        let controller = makeController(discovery, MixerSessionFake())
+        controller.enable()
+        controller.setPanelVisible(true)
+        defer { controller.stop() }
+
+        discovery.fail()
+        for presentation in [ApplicationAudioMixerPresentation.inline, .submenu] {
+            controller.presentation = presentation
+            XCTAssertGreaterThan(try mixerSectionHeight(controller, isInput: false), 1)
+        }
+    }
+
+    private func mixerSectionHeight(_ controller: ApplicationAudioMixerController, isInput: Bool) throws -> CGFloat {
+        let renderer = ImageRenderer(content: VStack(spacing: 0) {
+            Color.clear.frame(height: 1)
+            if controller.presentation == .inline {
+                ApplicationAudioMixerInlineSection(controller: controller, isInput: isInput)
+            } else {
+                ApplicationAudioMixerView(controller: controller, isInput: isInput)
+            }
+        }
+        .environmentObject(Localization())
+        .frame(width: 300))
+        return try XCTUnwrap(renderer.nsImage).size.height
+    }
+
     func testMicrophoneDeviceNameDoesNotAddASecondLine() throws {
         let discovery = MixerDiscoveryFake()
         let controller = makeController(discovery, MixerSessionFake())
