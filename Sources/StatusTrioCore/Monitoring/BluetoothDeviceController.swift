@@ -1151,7 +1151,16 @@ final class BluetoothDeviceController: ObservableObject {
                 // state from a report that carries no level for any device: the
                 // panel reports it once instead of staying silent.
                 self.batteryLevelsReadFailed = levels == nil
-                self.batteryLevels = levels ?? [:]
+                var displayedLevels = levels ?? [:]
+                if self.hasVisibleSurface, self.accessoryBatteryReader != nil {
+                    for device in self.devices where device.isConnected && device.isAirPods {
+                        let address = BluetoothBatteryReader.normalizedAddress(device.id)
+                        guard let next = displayedLevels[address],
+                              let previous = self.batteryLevels[address], !previous.charging.isEmpty else { continue }
+                        displayedLevels[address] = next.withCharging(previous.charging)
+                    }
+                }
+                self.batteryLevels = displayedLevels
                 self.hasCompletedBatteryRead = true
                 // The primary source is published first and on its own. The
                 // second source is an addition to it, never a precondition for
@@ -1161,23 +1170,16 @@ final class BluetoothDeviceController: ObservableObject {
         }
     }
 
-    /// Reads the accessory power sources for the devices the paired-device
-    /// report carried no level for, and adds what they supply.
-    ///
-    /// The primary levels stay published while this read is in flight, and the
-    /// merge copies them through untouched: this can add a level for a device the
-    /// report cannot describe, and cannot change or remove one it can. The gate
-    /// is the same request token, so a merge that lands after a newer read
-    /// superseded this one is dropped rather than published over it.
+    /// Supplements missing levels and charging state for visible AirPods.
     private func readAccessoryLevelsIfNeeded(
         request: UInt64,
         levels: [String: BluetoothBatteryLevel]?
     ) {
         guard let accessoryBatteryReader else { return }
-        guard BluetoothBatteryLevelFallback.isNeeded(levels: levels, devices: devices) else {
-            return
-        }
-        accessoryBatteryReader.read { [weak self] accessories in
+        let needsLevels = BluetoothBatteryLevelFallback.isNeeded(levels: levels, devices: devices)
+        let needsCharging = hasVisibleSurface && devices.contains { $0.isConnected && $0.isAirPods }
+        guard needsLevels || needsCharging else { return }
+        let receive: @Sendable ([BluetoothAccessoryBatteryLevel]?) -> Void = { [weak self] accessories in
             Task { @MainActor [weak self] in
                 guard let self,
                       self.isActive,
@@ -1189,15 +1191,19 @@ final class BluetoothDeviceController: ObservableObject {
                 // A source that could not be read adds no failure of its own:
                 // the primary read's verdict stands, and a second line saying the
                 // same thing would only repeat it.
-                guard let accessories else { return }
+                guard let accessories else {
+                    if needsCharging { self.batteryLevels = levels ?? [:] }
+                    return
+                }
                 // Resolve against the *current* device list, not the one captured
                 // when the read started. A device can disconnect while `pmset`
                 // runs; its snapshot then still says "connected", and merging
                 // against it would hand a level to a device that already left.
                 let merged = BluetoothBatteryLevelFallback.merged(
-                    levels: self.batteryLevels,
+                    levels: levels ?? [:],
                     accessories: accessories,
-                    devices: self.devices
+                    devices: self.devices,
+                    includeAirPodsCharging: self.hasVisibleSurface
                 )
                 self.batteryLevels = merged
                 // The report's failure is cleared exactly when the second source
@@ -1208,6 +1214,11 @@ final class BluetoothDeviceController: ObservableObject {
                     self.batteryLevelsReadFailed = false
                 }
             }
+        }
+        if needsLevels {
+            accessoryBatteryReader.read(completion: receive)
+        } else {
+            accessoryBatteryReader.readCharging(for: devices, completion: receive)
         }
     }
 

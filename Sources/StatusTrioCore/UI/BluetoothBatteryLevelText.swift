@@ -18,6 +18,9 @@ enum BluetoothBatteryLevelText {
             switch segment {
             case .text(let value):
                 return run + Text(verbatim: value)
+            case .charging:
+                guard symbolImage("bolt.fill") != nil else { return run }
+                return run + Text(verbatim: " ") + Text(Image(systemName: "bolt.fill"))
             case .symbol(let name, let label):
                 // A symbol Apple drops in a later release must not take the
                 // meaning with it: the label stands in for the glyph, the way

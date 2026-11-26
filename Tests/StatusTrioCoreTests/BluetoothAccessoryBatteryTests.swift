@@ -8,6 +8,24 @@ import Testing
 struct BluetoothAccessoryBatteryTests {
     // MARK: - Parsing
 
+    @Test func chargingPartsInheritIdentityButNotChargingState() {
+        let levels = BluetoothAccessoryBatteryReader.chargingLevels(from: [[
+            "Type": "Accessory Source",
+            "Group Identifier": "AA:BB:CC:DD:EE:FF",
+            "Name": "AirPods Pro",
+            "Is Charging": true,
+            "Combined Parts": [
+                ["Part Identifier": "Left", "Current Capacity": 89],
+                ["Part Identifier": "Case", "Current Capacity": 54, "Is Charging": true],
+            ],
+        ]])
+
+        #expect(levels.count == 2)
+        #expect(levels.allSatisfy { $0.identifier == "AA:BB:CC:DD:EE:FF" })
+        #expect(levels.first { $0.part == .left }?.isCharging == nil)
+        #expect(levels.first { $0.part == .caseLevel }?.isCharging == true)
+    }
+
     /// `pmset -g accps -xml` prints one property list per power source,
     /// concatenated. The Mac's own battery is one of them and is not an
     /// accessory, so its type is what keeps it out of the list.

@@ -103,6 +103,59 @@ struct BluetoothBatteryLevelFallbackTests {
 
     // MARK: - Merging
 
+    @Test func chargingEnrichesOnlyTheMatchedAirPodsChannels() {
+        let airPods = device()
+        let other = device(address: "D3:6D:6C:40:A3:2E", name: "Other Headset")
+        let airPodsKey = BluetoothBatteryReader.normalizedAddress(airPods.id)
+        let otherKey = BluetoothBatteryReader.normalizedAddress(other.id)
+        let primary = BluetoothBatteryLevel(
+            deviceAddress: airPods.id, main: nil, left: 81, right: 55, caseLevel: nil
+        )
+        let otherPrimary = BluetoothBatteryLevel(
+            deviceAddress: other.id, main: 70, left: nil, right: nil, caseLevel: nil
+        )
+        let readings = BluetoothAccessoryBatteryReader.parse(xml: """
+            <?xml version="1.0"?><plist version="1.0"><dict>
+            <key>Type</key><string>Accessory Source</string>
+            <key>Accessory Identifier</key><string>\(airPods.id)</string>
+            <key>Part Identifier</key><string>Left</string>
+            <key>Current Capacity</key><integer>40</integer>
+            <key>Is Charging</key><true/>
+            </dict></plist>
+            <?xml version="1.0"?><plist version="1.0"><dict>
+            <key>Type</key><string>Accessory Source</string>
+            <key>Accessory Identifier</key><string>\(airPods.id)</string>
+            <key>Part Identifier</key><string>Right</string>
+            <key>Current Capacity</key><integer>80</integer>
+            <key>Is Charging</key><false/>
+            </dict></plist>
+            <?xml version="1.0"?><plist version="1.0"><dict>
+            <key>Type</key><string>Accessory Source</string>
+            <key>Accessory Identifier</key><string>\(airPods.id)</string>
+            <key>Part Identifier</key><string>Case</string>
+            <key>Current Capacity</key><integer>85</integer>
+            <key>Is Charging</key><integer>1</integer>
+            </dict></plist>
+            <?xml version="1.0"?><plist version="1.0"><dict>
+            <key>Type</key><string>Accessory Source</string>
+            <key>Accessory Identifier</key><string>\(other.id)</string>
+            <key>Current Capacity</key><integer>99</integer>
+            <key>Is Charging</key><true/>
+            </dict></plist>
+            """)
+        let levels = [airPodsKey: primary, otherKey: otherPrimary]
+        let merged = BluetoothBatteryLevelFallback.merged(
+            levels: levels, accessories: readings, devices: [airPods, other], includeAirPodsCharging: true
+        )
+        #expect(merged[airPodsKey]?.summary == "L 81% · R 55%")
+        #expect(merged[airPodsKey]?.segments == [.text("L 81%"), .charging, .text(" · "), .text("R 55%")])
+        #expect(merged[airPodsKey]?.charging == [.left: true, .right: false])
+        #expect(merged[otherKey] == otherPrimary)
+        #expect(BluetoothBatteryLevelFallback.merged(
+            levels: levels, accessories: readings, devices: [airPods, other]
+        ) == levels)
+    }
+
     /// This is the guarantee the whole fallback rests on: a level the report
     /// already carries is copied through untouched.
     @Test("A level the report carries is never changed by the second source")

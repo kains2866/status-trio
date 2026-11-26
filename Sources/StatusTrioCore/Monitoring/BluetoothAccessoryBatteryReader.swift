@@ -1,4 +1,6 @@
+import CoreFoundation
 import Foundation
+import IOKit.ps
 
 /// One accessory battery reading from the system's power-management accessory
 /// sources — the data macOS's own accessory battery UI is built from.
@@ -23,10 +25,22 @@ struct BluetoothAccessoryBatteryLevel: Equatable, Sendable {
     let productID: Int?
     let part: BluetoothAccessoryPart?
     let percentage: Int
+    let isCharging: Bool?
+
+    init(identifier: String?, name: String, vendorID: Int?, productID: Int?,
+         part: BluetoothAccessoryPart?, percentage: Int, isCharging: Bool? = nil) {
+        self.identifier = identifier
+        self.name = name
+        self.vendorID = vendorID
+        self.productID = productID
+        self.part = part
+        self.percentage = percentage
+        self.isCharging = isCharging
+    }
 }
 
 /// Which part of an accessory a power source describes.
-enum BluetoothAccessoryPart: Equatable, Sendable {
+enum BluetoothAccessoryPart: Hashable, Sendable {
     case left
     case right
     case caseLevel
@@ -48,6 +62,15 @@ protocol BluetoothAccessoryBatteryReading: AnyObject {
     /// `nil` means the accessory sources could not be read at all; an empty
     /// array means they were read and list no accessory carrying a level.
     func read(completion: @escaping @Sendable ([BluetoothAccessoryBatteryLevel]?) -> Void)
+    func readCharging(for devices: [BluetoothDevice],
+                      completion: @escaping @Sendable ([BluetoothAccessoryBatteryLevel]?) -> Void)
+}
+
+extension BluetoothAccessoryBatteryReading {
+    func readCharging(for devices: [BluetoothDevice],
+                      completion: @escaping @Sendable ([BluetoothAccessoryBatteryLevel]?) -> Void) {
+        read(completion: completion)
+    }
 }
 
 enum BluetoothAccessoryBatteryReader {
@@ -58,6 +81,21 @@ enum BluetoothAccessoryBatteryReader {
     /// not cost the readings that can be read.
     static func parse(xml: String) -> [BluetoothAccessoryBatteryLevel] {
         documents(in: xml).compactMap(level(from:))
+    }
+
+    static func chargingLevels(from documents: [[String: Any]]) -> [BluetoothAccessoryBatteryLevel] {
+        documents.flatMap { document -> [BluetoothAccessoryBatteryLevel] in
+            guard document["Type"] as? String == "Accessory Source" else { return [] }
+            guard let parts = document["Combined Parts"] as? [[String: Any]] else {
+                return level(from: document, acceptsGroupIdentifier: true).map { [$0] } ?? []
+            }
+            let identityKeys = ["Type", "Accessory Identifier", "Group Identifier", "Name", "Vendor ID", "Product ID"]
+            let identity = document.filter { identityKeys.contains($0.key) }
+            return parts.compactMap { part in
+                let description = part.merging(identity) { partValue, _ in partValue }
+                return level(from: description, acceptsGroupIdentifier: true)
+            }
+        }
     }
 
     static func documents(in xml: String) -> [[String: Any]] {
@@ -73,6 +111,10 @@ enum BluetoothAccessoryBatteryReader {
     }
 
     private static func level(from document: [String: Any]) -> BluetoothAccessoryBatteryLevel? {
+        level(from: document, acceptsGroupIdentifier: false)
+    }
+
+    private static func level(from document: [String: Any], acceptsGroupIdentifier: Bool) -> BluetoothAccessoryBatteryLevel? {
         // The Mac's own battery is a power source too, and it is not an
         // accessory: its type is what keeps it out of this list.
         guard document["Type"] as? String == "Accessory Source",
@@ -80,14 +122,21 @@ enum BluetoothAccessoryBatteryReader {
             return nil
         }
         return BluetoothAccessoryBatteryLevel(
-            identifier: identifier(of: document),
+            identifier: identifier(of: document, key: "Accessory Identifier")
+                ?? (acceptsGroupIdentifier ? identifier(of: document, key: "Group Identifier") : nil),
             name: (document["Name"] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
             vendorID: document["Vendor ID"] as? Int,
             productID: document["Product ID"] as? Int,
             part: BluetoothAccessoryPart(identifier: document["Part Identifier"] as? String),
-            percentage: percentage
+            percentage: percentage,
+            isCharging: chargingFlag(document["Is Charging"])
         )
+    }
+
+    private static func chargingFlag(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
     }
 
     /// The accessory's own identity, as the power manager writes it.
@@ -97,8 +146,8 @@ enum BluetoothAccessoryBatteryReader {
     /// only value that tells two sets of one model apart: the vendor/product pair
     /// and the name are shared by both. A source that omits it, or writes an
     /// empty string, is reported as `nil` and cannot be attributed by the caller.
-    private static func identifier(of document: [String: Any]) -> String? {
-        guard let identifier = document["Accessory Identifier"] as? String else { return nil }
+    private static func identifier(of document: [String: Any], key: String) -> String? {
+        guard let identifier = document[key] as? String else { return nil }
         let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -114,6 +163,28 @@ enum BluetoothAccessoryBatteryReader {
         let value = Int((Double(current) / Double(maximum) * 100).rounded())
         guard (0...100).contains(value) else { return nil }
         return value
+    }
+}
+
+private enum IOKitAccessoryChargingSource {
+    private typealias CopyPowerSourcesByType = @convention(c) (Int32) -> Unmanaged<CFTypeRef>?
+
+    private static let copyPowerSourcesByType: CopyPowerSourcesByType? = {
+        guard let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_LAZY) else { return nil }
+        guard let symbol = dlsym(handle, "IOPSCopyPowerSourcesByType") else {
+            dlclose(handle)
+            return nil
+        }
+        return unsafeBitCast(symbol, to: CopyPowerSourcesByType.self)
+    }()
+
+    static func readLevels() -> [BluetoothAccessoryBatteryLevel]? {
+        guard let snapshot = copyPowerSourcesByType?(0)?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() else { return nil }
+        let documents = (sources as NSArray).compactMap { source in
+            IOPSGetPowerSourceDescription(snapshot, source as CFTypeRef)?.takeUnretainedValue() as? [String: Any]
+        }
+        return BluetoothAccessoryBatteryReader.chargingLevels(from: documents)
     }
 }
 
@@ -146,6 +217,11 @@ final class PmsetAccessoryBatteryWorker: @unchecked Sendable, BluetoothAccessory
     }
 
     func read(completion: @escaping @Sendable ([BluetoothAccessoryBatteryLevel]?) -> Void) {
+        readCharging(for: [], completion: completion)
+    }
+
+    func readCharging(for devices: [BluetoothDevice],
+                      completion: @escaping @Sendable ([BluetoothAccessoryBatteryLevel]?) -> Void) {
         // A read that never returned would block this one behind it on the same
         // serial queue for the lifetime of the process, so retire that queue and
         // give this read a fresh one. `pmset` talks to the power manager and can
@@ -164,7 +240,18 @@ final class PmsetAccessoryBatteryWorker: @unchecked Sendable, BluetoothAccessory
 
         let outputProvider = self.outputProvider
         currentQueue.async { [weak self] in
-            let levels = outputProvider().map { BluetoothAccessoryBatteryReader.parse(xml: $0) }
+            let levels: [BluetoothAccessoryBatteryLevel]?
+            if !devices.isEmpty, let nativeLevels = IOKitAccessoryChargingSource.readLevels(),
+               BluetoothBatteryLevelFallback.hasAirPodsChargingState(accessories: nativeLevels, devices: devices) {
+                levels = nativeLevels
+            } else {
+                levels = outputProvider().map { xml in
+                    if devices.isEmpty { return BluetoothAccessoryBatteryReader.parse(xml: xml) }
+                    return BluetoothAccessoryBatteryReader.chargingLevels(
+                        from: BluetoothAccessoryBatteryReader.documents(in: xml)
+                    )
+                }
+            }
             if let self {
                 self.stateLock.withLock {
                     // Only the read on the current queue may clear the flag; a

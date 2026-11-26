@@ -17,6 +17,7 @@ enum BluetoothBatterySegment: Equatable, Sendable {
     /// `label` is what the text-only rendering spells there instead, so the two
     /// forms of one level cannot drift apart.
     case symbol(name: String, label: String)
+    case charging
 }
 
 extension Array where Element == BluetoothBatterySegment {
@@ -26,6 +27,7 @@ extension Array where Element == BluetoothBatterySegment {
             switch segment {
             case .text(let value): value
             case .symbol(_, let label): label
+            case .charging: ""
             }
         }
         .joined()
@@ -38,6 +40,22 @@ struct BluetoothBatteryLevel: Equatable, Sendable {
     let left: Int?
     let right: Int?
     let caseLevel: Int?
+    let charging: [BluetoothAccessoryPart?: Bool]
+
+    init(deviceAddress: String, main: Int?, left: Int?, right: Int?, caseLevel: Int?,
+         charging: [BluetoothAccessoryPart?: Bool] = [:]) {
+        self.deviceAddress = deviceAddress
+        self.main = main
+        self.left = left
+        self.right = right
+        self.caseLevel = caseLevel
+        self.charging = charging
+    }
+
+    func withCharging(_ charging: [BluetoothAccessoryPart?: Bool]) -> Self {
+        Self(deviceAddress: deviceAddress, main: main, left: left,
+             right: right, caseLevel: caseLevel, charging: charging)
+    }
 
     /// The level as the pieces a row draws, or `nil` when the report carries no
     /// channel for this device at all.
@@ -55,16 +73,20 @@ struct BluetoothBatteryLevel: Equatable, Sendable {
 
         if let main {
             append(.text("\(main)%"))
+            if charging[nil] == true { pieces.append(.charging) }
         }
         if let left {
             append(.text("L \(left)%"))
+            if charging[.left] == true { pieces.append(.charging) }
         }
         if let right {
             append(.text("R \(right)%"))
+            if charging[.right] == true { pieces.append(.charging) }
         }
         if let caseLevel {
             append(.symbol(name: Self.caseSymbolName, label: Self.caseTextLabel))
             pieces.append(.text(" \(caseLevel)%"))
+            if charging[.caseLevel] == true { pieces.append(.charging) }
         }
         return pieces.isEmpty ? nil : pieces
     }

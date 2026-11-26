@@ -63,26 +63,46 @@ enum BluetoothBatteryLevelFallback {
     }
 
     /// The primary levels, with a level added for every connected device they
-    /// carry none for. Entries the report already has are copied through
-    /// untouched, so this can only ever add.
+    /// carry none for. A matched AirPods reading can also add charging state
+    /// without replacing the primary percentages.
     ///
     /// A disconnected device is never given a level here: it has no live session,
     /// so an accessory source that still names it is stale, not a reading.
     static func merged(
         levels: [String: BluetoothBatteryLevel],
         accessories: [BluetoothAccessoryBatteryLevel],
-        devices: [BluetoothDevice]
+        devices: [BluetoothDevice],
+        includeAirPodsCharging: Bool = false
     ) -> [String: BluetoothBatteryLevel] {
         var merged = levels
         let attributed = attributedReadings(accessories: accessories, devices: devices)
         for device in devices where device.isConnected {
             let address = BluetoothBatteryReader.normalizedAddress(device.id)
-            guard !address.isEmpty, merged[address] == nil else { continue }
+            guard !address.isEmpty else { continue }
             guard let readings = attributed[address] else { continue }
-            guard let level = channelLevel(for: device, readings: readings) else { continue }
-            merged[address] = level
+            guard let level = levels[address] ?? channelLevel(for: device, readings: readings) else { continue }
+            if includeAirPodsCharging, device.isAirPods {
+                var charging = level.charging
+                for reading in readings where charging[reading.part] == nil {
+                    charging[reading.part] = reading.isCharging
+                }
+                merged[address] = level.withCharging(charging)
+            } else {
+                merged[address] = level
+            }
         }
         return merged
+    }
+
+    static func hasAirPodsChargingState(
+        accessories: [BluetoothAccessoryBatteryLevel], devices: [BluetoothDevice]
+    ) -> Bool {
+        let attributed = attributedReadings(accessories: accessories, devices: devices)
+        return devices.contains { device in
+            guard device.isAirPods, device.isConnected else { return false }
+            let address = BluetoothBatteryReader.normalizedAddress(device.id)
+            return attributed[address]?.contains { $0.isCharging != nil } == true
+        }
     }
 
     /// One device's level, built from the accessory identifier that names it.

@@ -619,6 +619,8 @@ struct BluetoothStatusView: View {
         switch summaryPresentation {
         case .requestAuthorization:
             return localization.string(.bluetoothAuthorizationNotDetermined)
+        case .devices where summaryPresentation.deviceSegments?.contains(.charging) == true:
+            return "\(summaryText), \(localization.string(.mobileBatteryCharging))"
         default:
             return summaryText
         }

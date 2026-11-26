@@ -404,9 +404,8 @@ final class AppEnvironment {
             inputMonitor: inputMonitor,
             refreshInterval: refreshInterval,
             bluetoothDevices: BluetoothDeviceController(
-                // The accessory power sources are the second battery source, read
-                // only for the devices the paired-device report carries no level
-                // for; accessory notifications are what make a level refresh
+                // Accessory power sources fill missing levels and visible AirPods
+                // charging state. Accessory notifications refresh those readings
                 // between the safety-net polls.
                 accessoryBatteryReader: PmsetAccessoryBatteryWorker(),
                 connectionEvents: IOBluetoothConnectionEventMonitor(),

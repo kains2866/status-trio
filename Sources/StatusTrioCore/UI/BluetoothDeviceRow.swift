@@ -314,13 +314,15 @@ struct BluetoothDeviceRow: View {
             )
         }
         let state = stateAccessibilityValue
-        guard let level = BluetoothDevicePresentation.batteryLevelSegments(
+        guard let segments = BluetoothDevicePresentation.batteryLevelSegments(
             for: device,
             batteryLevels: batteryLevels
-        )?.plainText else {
+        ) else {
             return state
         }
-        return "\(state), \(level)"
+        let level = "\(state), \(segments.plainText)"
+        guard segments.contains(.charging) else { return level }
+        return "\(level), \(localization.string(.mobileBatteryCharging))"
     }
 
     /// What this row's status says, for the accessibility value that replaced the
