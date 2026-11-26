@@ -1909,17 +1909,15 @@ final class StatusBarController: NSObject {
 
     /// Pops the right-click context menu below the status item (#302).
     ///
-    /// The anchor is the button's local bounds, but those bounds can be briefly
-    /// wrong during status-item/menu-bar lifecycle churn, which is what pushed
-    /// the menu away from the icon every so often. Validate the same screen rect
-    /// the panel path uses and, when it is unusable, retry on the next run-loop
-    /// turn instead of popping at the stale position.
+    /// Validate the same screen rect the panel path uses and retry briefly when
+    /// status-item geometry is in flux.
     private func showMenu(attempt: Int = 0) {
         let screens = NSScreen.screens.map {
             StatusPanelShortcutScreen(frame: $0.frame, visibleFrame: $0.visibleFrame)
         }
+        let anchor = visibleMenuBarAnchor()
         let decision = StatusMenuPresentationPolicy.decision(
-            menuBarRect: visibleMenuBarAnchor()?.screenRect,
+            menuBarRect: anchor?.screenRect,
             isStatusItemVisible: isStatusItemVisible,
             screens: screens,
             attempt: attempt
@@ -1939,11 +1937,19 @@ final class StatusBarController: NSObject {
             updateTarget: self,
             updateAction: #selector(handleCheckForUpdates)
         )
-        guard let button = statusItem.button else { return }
+        guard let anchor else {
+            guard let button = statusItem.button else { return }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY + 4), in: button)
+            return
+        }
+        let center = NSPoint(x: anchor.screenRect.midX, y: anchor.screenRect.midY)
+        let hostScreen = screens.first { $0.frame.contains(center) }
         menu.popUp(
             positioning: nil,
-            at: NSPoint(x: 0, y: button.bounds.maxY + 4),
-            in: button
+            at: StatusMenuPresentationPolicy.anchorPoint(
+                for: anchor.screenRect, menuBarBottom: hostScreen?.visibleFrame.maxY
+            ),
+            in: nil
         )
     }
 }
