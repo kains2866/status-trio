@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import PowerHelperProtocol
 
@@ -51,7 +52,8 @@ enum PmsetError: LocalizedError {
 struct SystemPmsetRunner: PmsetRunning {
     /// Long enough for `pmset` to persist a setting on a loaded machine, short
     /// enough that a stuck power-management call cannot be mistaken for a hang.
-    static let defaultTimeout: Duration = .seconds(5)
+    static let defaultTimeout: Duration = .seconds(PowerHelperTiming.pmsetProcessTimeout)
+    private static let outputByteLimit = 64 * 1024
 
     private let timeout: Duration
     private let executableURL: URL
@@ -153,9 +155,7 @@ struct SystemPmsetRunner: PmsetRunning {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
-        // Unread pipes can fill and block the child, so a stream is only piped
-        // when the caller actually parses it. `pmset` writes a single short line,
-        // well under the pipe buffer, so draining both after exit is safe.
+        // Capture only the short pmset replies used by the caller.
         let stderrPipe: Pipe?
         if capturesError {
             let pipe = Pipe()
@@ -189,13 +189,28 @@ struct SystemPmsetRunner: PmsetRunning {
         if status == nil {
             return Outcome(status: nil, output: "", errorOutput: "")
         }
-        let output = stdoutPipe.map {
-            String(data: $0.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        } ?? ""
-        let errorOutput = stderrPipe.map {
-            String(data: $0.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        } ?? ""
+        let output = Self.availableOutput(in: stdoutPipe)
+        let errorOutput = Self.availableOutput(in: stderrPipe)
         return Outcome(status: status, output: output, errorOutput: errorOutput)
+    }
+
+    private static func availableOutput(in pipe: Pipe?) -> String {
+        guard let handle = pipe?.fileHandleForReading else { return "" }
+        let descriptor = handle.fileDescriptor
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags != -1, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) != -1 else { return "" }
+
+        var output = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while output.count < outputByteLimit {
+            let remaining = outputByteLimit - output.count
+            let readCount = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(descriptor, bytes.baseAddress, min(bytes.count, remaining))
+            }
+            guard readCount > 0 else { break }
+            output.append(contentsOf: buffer.prefix(readCount))
+        }
+        return String(decoding: output, as: UTF8.self)
     }
 
     /// Awaits the child without blocking the caller's queue, and reports `nil`

@@ -30,9 +30,9 @@ enum LowPowerModeClientError: LocalizedError {
 /// guessing why.
 final class XPCPrivilegedHelperClient: LowPowerModeClienting, @unchecked Sendable {
     private let queue = DispatchQueue(label: "StatusTrio.PowerHelper.XPC")
-    private let requestTimeout: TimeInterval
+    private let requestTimeout: TimeInterval?
 
-    init(requestTimeout: TimeInterval = 3) {
+    init(requestTimeout: TimeInterval? = nil) {
         self.requestTimeout = requestTimeout
     }
 
@@ -45,7 +45,7 @@ final class XPCPrivilegedHelperClient: LowPowerModeClienting, @unchecked Sendabl
     }
 
     func setLowPowerMode(_ enabled: Bool) async throws -> Bool {
-        try await withProxy { proxy, finish in
+        try await withProxy(timeout: PowerHelperTiming.writeRequestTimeout) { proxy, finish in
             proxy.setLowPowerMode(enabled) { observed, error in
                 finish(Self.result(enabled: observed, error: error))
             }
@@ -60,6 +60,7 @@ final class XPCPrivilegedHelperClient: LowPowerModeClienting, @unchecked Sendabl
     }
 
     private func withProxy(
+        timeout: TimeInterval = PowerHelperTiming.readRequestTimeout,
         _ body: @escaping (any PowerHelperXPCProtocol, @escaping (Result<Bool, any Error>) -> Void) -> Void
     ) async throws -> Bool {
         try await withCheckedThrowingContinuation { continuation in
@@ -75,7 +76,7 @@ final class XPCPrivilegedHelperClient: LowPowerModeClienting, @unchecked Sendabl
                 let finish = OneShotReply(
                     continuation: continuation,
                     connection: connection,
-                    timeout: self.requestTimeout,
+                    timeout: self.requestTimeout ?? timeout,
                     queue: self.queue
                 )
                 connection.interruptionHandler = {

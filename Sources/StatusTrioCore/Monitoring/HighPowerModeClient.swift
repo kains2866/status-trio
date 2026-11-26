@@ -39,9 +39,9 @@ enum HighPowerModeClientError: LocalizedError {
 /// reports a connection failure as `helperUnavailable` rather than guessing why.
 final class XPCPrivilegedHighPowerClient: HighPowerModeClienting, @unchecked Sendable {
     private let queue = DispatchQueue(label: "StatusTrio.PowerHelper.HighPower.XPC")
-    private let requestTimeout: TimeInterval
+    private let requestTimeout: TimeInterval?
 
-    init(requestTimeout: TimeInterval = 3) {
+    init(requestTimeout: TimeInterval? = nil) {
         self.requestTimeout = requestTimeout
     }
 
@@ -77,6 +77,7 @@ final class XPCPrivilegedHighPowerClient: HighPowerModeClienting, @unchecked Sen
 
     func setHighPowerMode(_ enabled: Bool) async throws -> Bool {
         try await request(
+            timeout: PowerHelperTiming.writeRequestTimeout,
             timeoutError: HighPowerModeClientError.helperUnavailable
         ) { proxy, finish in
             proxy.setHighPowerMode(enabled) { observed, error in
@@ -111,6 +112,7 @@ final class XPCPrivilegedHighPowerClient: HighPowerModeClienting, @unchecked Sen
     }
 
     private func request<Value: Sendable>(
+        timeout: TimeInterval = PowerHelperTiming.readRequestTimeout,
         timeoutError: any Error,
         _ body: @escaping (
             any PowerHelperXPCProtocol,
@@ -130,7 +132,7 @@ final class XPCPrivilegedHighPowerClient: HighPowerModeClienting, @unchecked Sen
                 let finish = OneShotReply(
                     continuation: continuation,
                     connection: connection,
-                    timeout: self.requestTimeout,
+                    timeout: self.requestTimeout ?? timeout,
                     queue: self.queue,
                     timeoutError: timeoutError
                 )

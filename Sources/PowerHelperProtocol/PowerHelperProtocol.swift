@@ -53,6 +53,12 @@ public enum PowerHelperProtocolVersion {
     public static let current = highPowerMode
 }
 
+public enum PowerHelperTiming {
+    public static let pmsetProcessTimeout: TimeInterval = 5
+    public static let readRequestTimeout: TimeInterval = pmsetProcessTimeout + 1
+    public static let writeRequestTimeout: TimeInterval = 3 * pmsetProcessTimeout + 1
+}
+
 /// The XPC surface the privileged helper exposes.
 ///
 /// Deliberately small: one boolean read and one boolean write for Low Power

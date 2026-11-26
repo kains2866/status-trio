@@ -57,6 +57,22 @@ final class SystemPmsetRunnerTests: XCTestCase {
         }
     }
 
+    func testReadDoesNotWaitForDescendantHoldingStdoutOpen() async throws {
+        let script = try makeScript("""
+            sleep 8 &
+            printf ' lowpowermode         1\\n'
+            exit 0
+            """)
+        defer { try? FileManager.default.removeItem(at: script) }
+        let runner = SystemPmsetRunner(timeout: .seconds(12), executableURL: script)
+        let started = ContinuousClock.now
+
+        let enabled = await runner.currentLowPowerMode()
+
+        XCTAssertEqual(enabled, true)
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(6))
+    }
+
     private func makeScript(_ body: String) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pmset-runner-\(UUID().uuidString).sh")
