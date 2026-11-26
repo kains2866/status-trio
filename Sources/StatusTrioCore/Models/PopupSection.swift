@@ -9,6 +9,7 @@ enum PopupSection: String, CaseIterable, Identifiable, Sendable {
     case brightness
     case audioInput
     case inputSource
+    case hardware
 
     var id: Self { self }
 
@@ -22,6 +23,7 @@ enum PopupSection: String, CaseIterable, Identifiable, Sendable {
         case .brightness: .settingsPopupOrderBrightness
         case .audioInput: .settingsPopupOrderAudioInput
         case .inputSource: .settingsPopupOrderInputSource
+        case .hardware: .hardwareMonitorTitle
         }
     }
 
@@ -35,6 +37,7 @@ enum PopupSection: String, CaseIterable, Identifiable, Sendable {
         case .brightness: SymbolFallback.name("sun.max", "sun.max")
         case .audioInput: "mic"
         case .inputSource: "keyboard"
+        case .hardware: "cpu"
         }
     }
 }

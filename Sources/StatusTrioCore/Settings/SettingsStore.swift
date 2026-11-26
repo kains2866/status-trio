@@ -164,10 +164,11 @@ final class SettingsStore: ObservableObject {
     static let hiddenBrightnessDisplayIDsDefaultsKey = "hiddenBrightnessDisplayIDs"
     static let popupSectionOrderDefaultsKey = "popupSectionOrder"
     static let enabledPopupSectionsDefaultsKey = "enabledPopupSections"
+    static let hardwareRefreshIntervalsDefaultsKey = "hardwareRefreshIntervals"
     /// Default order of the status-panel sections. Display brightness sits below
     /// the audio-input row so the two device-level controls stay together.
     static let defaultPopupSectionOrder: [PopupSection] = [
-        .battery, .network, .vpn, .bluetooth, .volume, .audioInput, .brightness, .inputSource
+        .battery, .network, .vpn, .bluetooth, .volume, .audioInput, .brightness, .hardware, .inputSource
     ]
     static let defaultEnabledPopupSections: Set<PopupSection> = [.battery, .network, .vpn, .volume]
     /// Set once the VPN row has been offered to a stored section list.
@@ -1086,6 +1087,22 @@ final class SettingsStore: ObservableObject {
                 forKey: Self.enabledPopupSectionsDefaultsKey
             )
         }
+    }
+
+    @Published private(set) var hardwareRefreshIntervals: [String: Int] {
+        didSet {
+            defaults.set(hardwareRefreshIntervals, forKey: Self.hardwareRefreshIntervalsDefaultsKey)
+        }
+    }
+
+    func hardwareRefreshSeconds(for group: HardwareRefreshGroup) -> Int {
+        let seconds = hardwareRefreshIntervals[group.rawValue] ?? group.defaultSeconds
+        return min(8, max(group.defaultSeconds, seconds))
+    }
+
+    func setHardwareRefreshSeconds(_ seconds: Int, for group: HardwareRefreshGroup) {
+        guard group.options.contains(seconds), hardwareRefreshSeconds(for: group) != seconds else { return }
+        hardwareRefreshIntervals = hardwareRefreshIntervals.merging([group.rawValue: seconds]) { _, newValue in newValue }
     }
 
     @Published var showsRedVolumeWhenMuted: Bool {
@@ -2057,6 +2074,9 @@ final class SettingsStore: ObservableObject {
             hasIntroducedVPN: hasIntroducedVPN
         )
         self.enabledPopupSections = migratedEnabledPopupSections
+        self.hardwareRefreshIntervals = defaults.dictionary(
+            forKey: Self.hardwareRefreshIntervalsDefaultsKey
+        ) as? [String: Int] ?? [:]
         if !hasIntroducedVPN {
             // The migration has to be written back by hand: `didSet` does not run
             // for an assignment made inside `init`, so a migrated list that was

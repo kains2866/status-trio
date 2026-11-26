@@ -205,6 +205,8 @@ struct StatusPopoverView: View {
     @ViewBuilder
     private func popupSection(_ section: PopupSection) -> some View {
         switch section {
+        case .hardware:
+            HardwareSamplingSectionView(store: panel.store, settings: panel.settings)
         case .battery:
             BatteryStatusView(
                 state: panel.battery,

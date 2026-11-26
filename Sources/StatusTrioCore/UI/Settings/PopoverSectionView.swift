@@ -11,7 +11,31 @@ struct PopoverSectionView: View {
             backgroundStyleGroup
             scrollDirectionGroup
             popupOrderGroup
+            if store.enabledPopupSections.contains(.hardware) {
+                hardwareRefreshGroup
+            }
             openBehaviorGroup
+        }
+    }
+
+    private var hardwareRefreshGroup: some View {
+        SettingsGroup(localization.string(.hardwareMonitorSettingsPanelRefresh)) {
+            ForEach(HardwareRefreshGroup.allCases, id: \.self) { group in
+                SettingsCustomRow {
+                    Picker(
+                        localization.string(group.titleKey),
+                        selection: Binding(
+                            get: { store.hardwareRefreshSeconds(for: group) },
+                            set: { store.setHardwareRefreshSeconds($0, for: group) }
+                        )
+                    ) {
+                        ForEach(group.options, id: \.self) { seconds in
+                            Text(Duration.seconds(seconds).formatted(.units(allowed: [.seconds])))
+                                .tag(seconds)
+                        }
+                    }
+                }
+            }
         }
     }
 
